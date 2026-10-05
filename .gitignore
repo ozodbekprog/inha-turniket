@@ -1,0 +1,6 @@
+*.log
+__pycache__/
+.DS_Store
+turniket_server/turniket.db
+turniket_server/turniket.db-journal
+esp32_turniket/clasp/.clasp.json
