@@ -403,8 +403,6 @@ th{color:#8fa3bf;font-size:11px;text-transform:uppercase}tr:last-child td{border
 <div class="cards">
   <div class="card b"><div class="n" id="s-total">0</div><div class="t">O'quvchilar</div></div>
   <div class="card g"><div class="n" id="s-inside">0</div><div class="t">Hozir ichida</div></div>
-  <div class="card y"><div class="n" id="s-logs">0</div><div class="t">Yozuvlar</div></div>
-  <div class="card r"><div class="n" id="s-denied">0</div><div class="t">Ruxsat yo'q</div></div>
 </div>
 <h2>Yangi o'quvchi qo'shish</h2>
 <form class="add" method="POST" action="/add" enctype="multipart/form-data">
@@ -432,8 +430,6 @@ async function load(){
     const r=await fetch('/api/data');const d=await r.json();
     document.getElementById('s-total').textContent=d.total;
     document.getElementById('s-inside').textContent=d.inside;
-    document.getElementById('s-logs').textContent=d.logcount;
-    document.getElementById('s-denied').textContent=d.denied;
     document.getElementById('students').innerHTML=d.students.map(s=>`
       <div class="stu">${s.photo?`<img src="/photos/${esc(s.photo)}">`:''}
       <div class="info"><b>${esc(s.ism)} ${esc(s.familiya)}</b><span>${esc(s.guruh)}</span>
