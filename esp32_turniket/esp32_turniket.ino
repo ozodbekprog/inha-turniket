@@ -273,6 +273,14 @@ void appendLogFile(const String& ts, const String& uid, const String& ism,
     f.printf("%s,%s,%s,%s,%s\n", ts.c_str(), uid.c_str(), ism.c_str(), guruh.c_str(), holat.c_str());
     f.close();
   }
+  // Kirdi/Chiqdi alohida fayllarga ham yoziladi
+  if (holat == "Kirdi" || holat == "Chiqdi") {
+    File g = FFat.open(holat == "Kirdi" ? "/kirdi.csv" : "/chiqdi.csv", "a");
+    if (g) {
+      g.printf("%s,%s,%s,%s\n", ts.c_str(), uid.c_str(), ism.c_str(), guruh.c_str());
+      g.close();
+    }
+  }
   LogEntry e{ts, uid, ism, guruh, holat};
   logs.push_back(e);
   if (logs.size() > 300) logs.erase(logs.begin());
@@ -369,87 +377,96 @@ int deniedCount() {
 
 // =================== WEB: DASHBOARD ===================
 
-static const char PAGE[] PROGMEM = R"HTML(<!doctype html><html lang="uz"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Inha University</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:#0e1420;color:#e8eef7}
-header{background:#131c2e;padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #22304a;position:sticky;top:0}
-header h1{font-size:16px;margin:0}header .dot{width:10px;height:10px;border-radius:50%;background:#27ae60;box-shadow:0 0 8px #27ae60}
-main{padding:16px;max-width:1100px;margin:0 auto}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
-.card{background:#131c2e;border:1px solid #22304a;border-radius:12px;padding:14px}
-.card .n{font-size:28px;font-weight:700}.card .t{color:#8fa3bf;font-size:12px;margin-top:2px}
-.card.g .n{color:#2ecc71}.card.y .n{color:#f1c40f}.card.r .n{color:#e74c3c}.card.b .n{color:#3498db}
-h2{font-size:13px;color:#8fa3bf;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.5px}
-form.add{background:#131c2e;border:1px solid #22304a;border-radius:12px;padding:14px;display:grid;gap:10px}
-form.add input[type=text]{background:#0b1120;border:1px solid #2b3c5c;color:#fff;padding:10px;border-radius:8px;font-size:14px}
-form.add input[type=file]{color:#8fa3bf;font-size:13px}
-form.add button{background:#1f6feb;color:#fff;border:0;padding:11px;border-radius:8px;font-size:14px;font-weight:600}
-table{width:100%;border-collapse:collapse;background:#131c2e;border-radius:12px;overflow:hidden}
-th,td{padding:9px 12px;text-align:left;font-size:13px;border-bottom:1px solid #1b263b}
-th{color:#8fa3bf;font-size:11px;text-transform:uppercase}tr:last-child td{border-bottom:none}
-.badge{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
-.kirdi{background:#123d26;color:#2ecc71}.chiqdi{background:#3d2a12;color:#f39c12}.deny{background:#4a1a1a;color:#ff7675}
-.students{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.stu{background:#131c2e;border:1px solid #22304a;border-radius:12px;padding:12px;display:flex;gap:11px;align-items:center}
-.stu img{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #2b3c5c;background:#1b263b}
-.stu .info{flex:1;min-width:0}.stu .info b{display:block;font-size:14px}.stu .info span{color:#8fa3bf;font-size:12px}
-.stu .uid{color:#5c7099;font-size:10px}.stu button{background:#3a1b1b;color:#ff7675;border:0;border-radius:8px;padding:7px 9px}
-.footer{color:#5c7099;font-size:11px;margin-top:22px;text-align:center}
-</style></head><body>
-<header><span class="dot"></span><h1>INHA UNIVERSITY — Dashboard</h1></header>
-<main>
-<div class="cards">
-  <div class="card b"><div class="n" id="s-total">0</div><div class="t">O'quvchilar</div></div>
-  <div class="card g"><div class="n" id="s-inside">0</div><div class="t">Hozir ichida</div></div>
-</div>
-<h2>Yangi o'quvchi qo'shish</h2>
-<form class="add" method="POST" action="/add" enctype="multipart/form-data">
-  <input type="text" name="uid" placeholder="Karta UID (masalan: 00B9B41A)" required>
-  <input type="text" name="ism" placeholder="Ism" required>
-  <input type="text" name="familiya" placeholder="Familiya" required>
-  <input type="text" name="sid" placeholder="Talaba ID (masalan: U2610266)">
-  <input type="text" name="guruh" placeholder="Guruh (masalan: S00101)">
-  <input type="file" name="photo" accept="image/jpeg,image/png">
-  <button type="submit">Qo'shish</button>
-</form>
-<h2>O'quvchilar</h2>
-<div class="students" id="students"></div>
-<h2>Davomat</h2>
-<table><thead><tr><th>Vaqt</th><th>UID</th><th>Ism</th><th>Guruh</th><th>Holat</th></tr></thead>
-<tbody id="logs"></tbody></table>
-<div class="footer">Inha University • 192.168.4.1 • har 3s yangilanadi</div>
-</main>
-<script>
-function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function cls(h){h=(h||'').toLowerCase();if(h.includes('kirdi'))return'kirdi';if(h.includes('chiqdi'))return'chiqdi';return'deny'}
-async function syncTime(){try{await fetch('/api/time?ms='+Date.now())}catch(e){}}
-async function load(){
-  try{
-    const r=await fetch('/api/data');const d=await r.json();
-    document.getElementById('s-total').textContent=d.total;
-    document.getElementById('s-inside').textContent=d.inside;
-    document.getElementById('students').innerHTML=d.students.map(s=>`
-      <div class="stu">${s.photo?`<img src="/photos/${esc(s.photo)}">`:''}
-      <div class="info"><b>${esc(s.ism)} ${esc(s.familiya)}</b><span>${esc(s.guruh)}</span>
-      <div class="uid">${esc(s.sid)} • ${esc(s.uid)}</div></div>
-      <button onclick="del('${esc(s.uid)}')">✕</button></div>`).join('');
-    document.getElementById('logs').innerHTML=d.logs.map(l=>`
-      <tr><td>${esc(l.ts)}</td><td>${esc(l.uid)}</td><td>${esc(l.ism)}</td>
-      <td>${esc(l.guruh)}</td><td><span class="badge ${cls(l.holat)}">${esc(l.holat)}</span></td></tr>`).join('');
-  }catch(e){}
-}
-async function del(uid){if(!confirm('O\'chirilsinmi: '+uid+'?'))return;await fetch('/api/del?uid='+uid);load();}
-syncTime();load();setInterval(load,3000);setInterval(syncTime,30000);
-</script></body></html>)HTML";
+#include "dash_html.h"
 
 String apiData() {
+  String today = "";
+  if (clockSet) {
+    time_t t = time(nullptr);
+    struct tm tm;
+    localtime_r(&t, &tm);
+    char b[12];
+    strftime(b, sizeof(b), "%Y-%m-%d", &tm);
+    today = String(b);
+  }
+
+  int todayK = 0, todayC = 0;
+  int hk[24] = {0}, hc[24] = {0};
+  for (auto& e : logs) {
+    bool isToday = (!clockSet) || e.ts.startsWith(today);
+    if (e.holat == "Kirdi") { if (isToday) todayK++; }
+    else if (e.holat == "Chiqdi") { if (isToday) todayC++; }
+    if (clockSet && isToday && e.ts.length() >= 13) {
+      int h = e.ts.substring(11, 13).toInt();
+      if (h >= 0 && h < 24) {
+        if (e.holat == "Kirdi") hk[h]++;
+        else if (e.holat == "Chiqdi") hc[h]++;
+      }
+    }
+  }
+
   String j = "{";
   j += "\"total\":" + String((int)students.size());
   j += ",\"inside\":" + String(insideCount());
-  j += ",\"logcount\":" + String((int)logs.size());
-  j += ",\"denied\":" + String(deniedCount());
+  j += ",\"todayKirdi\":" + String(todayK);
+  j += ",\"todayChiqdi\":" + String(todayC);
+  j += ",\"hoursK\":[";
+  for (int i = 0; i < 24; i++) { if (i) j += ","; j += String(hk[i]); }
+  j += "],\"hoursC\":[";
+  for (int i = 0; i < 24; i++) { if (i) j += ","; j += String(hc[i]); }
+  j += "]";
+
+  // Hozir ichida
+  j += ",\"insideList\":[";
+  bool first = true;
+  for (auto& kv : lastState) {
+    if (kv.second != "Kirdi") continue;
+    for (auto& s : students) {
+      if (!uidMatches(s.uid, kv.first)) continue;
+      String ts = "";
+      for (int i = (int)logs.size() - 1; i >= 0; i--) {
+        if (logs[i].uid == kv.first && logs[i].holat == "Kirdi") { ts = logs[i].ts; break; }
+      }
+      if (!first) j += ",";
+      first = false;
+      j += "{\"ism\":\"" + jsonEsc(s.ism) + "\",\"familiya\":\"" + jsonEsc(s.familiya) +
+           "\",\"sid\":\"" + jsonEsc(s.sid) + "\",\"photo\":\"" + jsonEsc(s.photo) +
+           "\",\"ts\":\"" + jsonEsc(ts) + "\"}";
+      break;
+    }
+  }
+  j += "]";
+
+  // Bugun kirdi / chiqdi ro'yxatlari
+  j += ",\"kirdiList\":[";
+  { bool f2 = true; int cnt = 0;
+    for (int i = (int)logs.size() - 1; i >= 0 && cnt < 40; i--) {
+      auto& e = logs[i];
+      if (e.holat != "Kirdi") continue;
+      if (clockSet && !e.ts.startsWith(today)) continue;
+      String sid = "";
+      for (auto& s : students) if (uidMatches(s.uid, e.uid)) { sid = s.sid; break; }
+      if (!f2) j += ","; f2 = false; cnt++;
+      j += "{\"ts\":\"" + jsonEsc(e.ts) + "\",\"ism\":\"" + jsonEsc(e.ism) +
+           "\",\"familiya\":\"\",\"sid\":\"" + jsonEsc(sid) + "\",\"holat\":\"Kirdi\"}";
+    }
+  }
+  j += "],\"chiqdiList\":[";
+  { bool f2 = true; int cnt = 0;
+    for (int i = (int)logs.size() - 1; i >= 0 && cnt < 40; i--) {
+      auto& e = logs[i];
+      if (e.holat != "Chiqdi") continue;
+      if (clockSet && !e.ts.startsWith(today)) continue;
+      String sid = "";
+      for (auto& s : students) if (uidMatches(s.uid, e.uid)) { sid = s.sid; break; }
+      if (!f2) j += ","; f2 = false; cnt++;
+      j += "{\"ts\":\"" + jsonEsc(e.ts) + "\",\"ism\":\"" + jsonEsc(e.ism) +
+           "\",\"familiya\":\"\",\"sid\":\"" + jsonEsc(sid) + "\",\"holat\":\"Chiqdi\"}";
+    }
+  }
+  j += "]";
+
+  // Barcha o'quvchilar
   j += ",\"students\":[";
   for (size_t i = 0; i < students.size(); i++) {
     if (i) j += ",";
@@ -457,20 +474,10 @@ String apiData() {
     j += "\"ism\":\"" + jsonEsc(students[i].ism) + "\",";
     j += "\"familiya\":\"" + jsonEsc(students[i].familiya) + "\",";
     j += "\"sid\":\"" + jsonEsc(students[i].sid) + "\",";
-    j += "\"guruh\":\"" + jsonEsc(students[i].guruh) + "\",";
     j += "\"photo\":\"" + jsonEsc(students[i].photo) + "\"}";
   }
-  j += "],\"logs\":[";
-  int n = logs.size() > 80 ? 80 : logs.size();
-  for (int i = (int)logs.size() - 1; i >= (int)logs.size() - n && i >= 0; i--) {
-    j += (i != (int)logs.size() - 1) ? "," : "";
-    j += "{\"ts\":\"" + jsonEsc(logs[i].ts) + "\",";
-    j += "\"uid\":\"" + jsonEsc(logs[i].uid) + "\",";
-    j += "\"ism\":\"" + jsonEsc(logs[i].ism) + "\",";
-    j += "\"guruh\":\"" + jsonEsc(logs[i].guruh) + "\",";
-    j += "\"holat\":\"" + jsonEsc(logs[i].holat) + "\"}";
-  }
-  j += "]}";
+  j += "]";
+  j += "}";
   return j;
 }
 
