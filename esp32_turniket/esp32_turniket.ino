@@ -101,9 +101,39 @@ File uploadFile;
 bool uploadStarted = false;
 
 struct Student {
-  String uid, ism, familiya, guruh, holat, photo;
+  String uid, ism, familiya, sid, guruh, holat, photo;
 };
 std::vector<Student> students;
+
+// ---- Ro'yxatdan olingan o'quvchilar (karta UID -> ism) ----
+struct SeedStudent {
+  const char* uid;
+  const char* ism;
+  const char* familiya;
+  const char* sid;
+};
+static const SeedStudent SEED_LIST[] = {
+  {"14DFE66A", "Amina",       "Ixromova",       "U2610266"},
+  {"47F0FA6A", "Mohinurbonu", "Murodova",       "U2610263"},
+  {"F787EA6A", "Kira",        "Janbayeva",      "U2610275"},
+  {"A778F46A", "Mo'mina",     "Xudoyberdiyeva", "U2610274"},
+  {"0A75FD8A", "Davlat",      "Boltayev",       "U2610229"},
+  {"F7BEF86A", "Odina",       "Voxidova",       "U2610237"},
+  {"F7D5E5CA", "Saliha",      "Shavkatova",     "U2610249"},
+  {"F7A3EECA", "Edem",        "Saidumarov",     "U2610221"},
+  {"0B48DF8A", "Toxir",       "Baradirov",      "U2610213"},
+  {"4D661F6C", "Ali",         "Yuldashev",      "U2610239"},
+  {"E710F86A", "Saidamir",    "Abidov",         "U2610272"},
+  {"B76CE36A", "Vyacheslav",  "Kim",            "U2610260"},
+  {"874FFB6A", "Yakov",       "An",             "U2610271"},
+  {"471DF76A", "Nadira",      "Xakimova",       "U2610240"},
+  {"6701FE6A", "Sayyora",     "Reymova",        "U2610262"},
+  {"2775E5A6", "Sanjarbek",   "Yeshbayev",      "U2610268"},
+  {"075EF86A", "Muhammadamin","Oripov",         "U2610243"},
+  {"82ABF86A", "Zohir",       "Shermatov",      "U2610265"},
+  {"57D8FA6A", "Amrulla",     "Barakayev",      "U2610252"},
+};
+static const int SEED_LIST_COUNT = sizeof(SEED_LIST) / sizeof(SEED_LIST[0]);
 
 struct LogEntry {
   String ts, uid, ism, guruh, holat;
@@ -173,8 +203,9 @@ void saveStudents() {
   File f = FFat.open("/students.csv", "w");
   if (!f) return;
   for (auto& s : students) {
-    f.printf("%s,%s,%s,%s,%s,%s\n", s.uid.c_str(), s.ism.c_str(),
-             s.familiya.c_str(), s.guruh.c_str(), s.holat.c_str(), s.photo.c_str());
+    f.printf("%s,%s,%s,%s,%s,%s,%s\n", s.uid.c_str(), s.ism.c_str(),
+             s.familiya.c_str(), s.sid.c_str(), s.guruh.c_str(),
+             s.holat.c_str(), s.photo.c_str());
   }
   f.close();
 }
@@ -187,25 +218,52 @@ void loadStudents() {
     String line = f.readStringUntil('\n');
     line.trim();
     if (line.length() < 5) continue;
-    String parts[6];
+    String parts[7];
     int idx = 0, start = 0;
-    for (int i = 0; i <= (int)line.length() && idx < 6; i++) {
+    for (int i = 0; i <= (int)line.length() && idx < 7; i++) {
       if (i == (int)line.length() || line[i] == ',') {
         parts[idx++] = line.substring(start, i);
         start = i + 1;
       }
     }
     Student s;
-    s.uid = parts[0]; s.uid.trim();
+    if (idx >= 7) {
+      s.uid = parts[0]; s.ism = parts[1]; s.familiya = parts[2];
+      s.sid = parts[3]; s.guruh = parts[4]; s.holat = parts[5]; s.photo = parts[6];
+    } else {
+      s.uid = parts[0]; s.ism = parts[1]; s.familiya = parts[2];
+      s.sid = ""; s.guruh = parts[3]; s.holat = parts[4]; s.photo = parts[5];
+    }
+    s.uid.trim(); s.ism.trim(); s.familiya.trim(); s.sid.trim();
+    s.guruh.trim(); s.holat.trim(); s.photo.trim();
     if (s.uid.length() == 0) continue;
-    s.ism = parts[1]; s.familiya = parts[2]; s.guruh = parts[3];
-    s.holat = parts[4].length() ? parts[4] : "faol";
-    s.photo = parts[5];
-    s.ism.trim(); s.familiya.trim(); s.guruh.trim(); s.holat.trim(); s.photo.trim();
+    if (s.holat.length() == 0) s.holat = "faol";
     students.push_back(s);
   }
   f.close();
   Serial.printf("O'quvchilar yuklandi: %d\n", (int)students.size());
+}
+
+// Boshlang'ich ro'yxatni qo'shish (bir marta)
+void seedStudents() {
+  if (FFat.exists("/seed_v2.done")) return;
+  int added = 0;
+  for (int i = 0; i < SEED_LIST_COUNT; i++) {
+    bool exists = false;
+    for (auto& st : students) {
+      if (st.uid.equalsIgnoreCase(SEED_LIST[i].uid)) { exists = true; break; }
+    }
+    if (!exists) {
+      students.push_back(Student{String(SEED_LIST[i].uid), String(SEED_LIST[i].ism),
+                                 String(SEED_LIST[i].familiya), String(SEED_LIST[i].sid),
+                                 "", "faol", ""});
+      added++;
+    }
+  }
+  saveStudents();
+  File f = FFat.open("/seed_v2.done", "w");
+  if (f) { f.println("ok"); f.close(); }
+  Serial.printf("Seed: %d ta yangi o'quvchi qo'shildi\n", added);
 }
 
 void appendLogFile(const String& ts, const String& uid, const String& ism,
@@ -324,6 +382,7 @@ th{color:#8fa3bf;font-size:11px;text-transform:uppercase}tr:last-child td{border
   <input type="text" name="uid" placeholder="Karta UID (masalan: 00B9B41A)" required>
   <input type="text" name="ism" placeholder="Ism" required>
   <input type="text" name="familiya" placeholder="Familiya" required>
+  <input type="text" name="sid" placeholder="Talaba ID (masalan: U2610266)">
   <input type="text" name="guruh" placeholder="Guruh (masalan: S00101)">
   <input type="file" name="photo" accept="image/jpeg,image/png">
   <button type="submit">Qo'shish</button>
@@ -349,7 +408,7 @@ async function load(){
     document.getElementById('students').innerHTML=d.students.map(s=>`
       <div class="stu">${s.photo?`<img src="/photos/${esc(s.photo)}">`:''}
       <div class="info"><b>${esc(s.ism)} ${esc(s.familiya)}</b><span>${esc(s.guruh)}</span>
-      <div class="uid">${esc(s.uid)}</div></div>
+      <div class="uid">${esc(s.sid)} • ${esc(s.uid)}</div></div>
       <button onclick="del('${esc(s.uid)}')">✕</button></div>`).join('');
     document.getElementById('logs').innerHTML=d.logs.map(l=>`
       <tr><td>${esc(l.ts)}</td><td>${esc(l.uid)}</td><td>${esc(l.ism)}</td>
@@ -372,6 +431,7 @@ String apiData() {
     j += "{\"uid\":\"" + jsonEsc(students[i].uid) + "\",";
     j += "\"ism\":\"" + jsonEsc(students[i].ism) + "\",";
     j += "\"familiya\":\"" + jsonEsc(students[i].familiya) + "\",";
+    j += "\"sid\":\"" + jsonEsc(students[i].sid) + "\",";
     j += "\"guruh\":\"" + jsonEsc(students[i].guruh) + "\",";
     j += "\"photo\":\"" + jsonEsc(students[i].photo) + "\"}";
   }
@@ -426,6 +486,7 @@ void handleAddDone() {
   uid.toUpperCase();
   String ism = trimField(server.arg("ism"));
   String familiya = trimField(server.arg("familiya"));
+  String sid = trimField(server.arg("sid"));
   String guruh = trimField(server.arg("guruh"));
 
   String photo = "";
@@ -444,13 +505,14 @@ void handleAddDone() {
   for (auto& s : students) {
     if (s.uid == uid) {
       s.ism = ism; s.familiya = familiya; s.guruh = guruh;
+      if (sid.length()) s.sid = sid;
       if (photo.length()) s.photo = photo;
       found = true;
       break;
     }
   }
   if (!found && uid.length() && ism.length()) {
-    students.push_back(Student{uid, ism, familiya, guruh, "faol", photo});
+    students.push_back(Student{uid, ism, familiya, sid, guruh, "faol", photo});
   }
   saveStudents();
   server.sendHeader("Location", "/");
@@ -550,8 +612,8 @@ bool loadPhotoFromFS(const String& file) {
   return photoLen > 100;
 }
 
-void showResultPanel(const String& uid, const String& name, const String& group,
-                     bool known, bool allowed, const char* action) {
+void showResultPanel(const String& uid, const String& name, const String& sid,
+                     const String& group, bool known, bool allowed, const char* action) {
   cardShowing = true;
   cardShownAt = millis();
 
@@ -590,23 +652,27 @@ void showResultPanel(const String& uid, const String& name, const String& group,
 
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(YEL, PANEL);
+  snprintf(buf, sizeof(buf), "Talaba ID: %s", sid.length() ? sid.c_str() : "-");
+  lcd.drawString(buf, 225, 148);
+
+  lcd.setTextColor(TFT_CYAN, PANEL);
   snprintf(buf, sizeof(buf), "Guruh: %s", group.length() ? group.c_str() : "-");
-  lcd.drawString(buf, 225, 150);
+  lcd.drawString(buf, 225, 170);
 
   lcd.setFont(&fonts::Font0);
   lcd.setTextColor(0xC618, PANEL);
-  snprintf(buf, sizeof(buf), "UID: %s", uid.c_str());
-  lcd.drawString(buf, 225, 178);
+  snprintf(buf, sizeof(buf), "Karta: %s", uid.c_str());
+  lcd.drawString(buf, 225, 192);
 
   char tbuf[32] = "";
   snprintf(tbuf, sizeof(tbuf), "%s", nowString().c_str());
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(0xC618, PANEL);
-  lcd.drawString(tbuf, 225, 205);
+  lcd.drawString(tbuf, 225, 212);
 
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(color, PANEL);
-  lcd.drawString(action, 225, 235);
+  lcd.drawString(action, 225, 238);
 }
 
 // =================== RFID ===================
@@ -668,12 +734,13 @@ void handleCard() {
   }
   bool known = idx >= 0;
   bool allowed = false;
-  String name = "", group = "", photoFile = "";
+  String name = "", group = "", photoFile = "", sid = "";
   if (known) {
     allowed = !(students[idx].holat.equalsIgnoreCase("bloklangan") ||
                 students[idx].holat.equalsIgnoreCase("blok"));
     name  = students[idx].ism + " " + students[idx].familiya;
     group = students[idx].guruh;
+    sid   = students[idx].sid;
     photoFile = students[idx].photo;
   }
 
@@ -697,7 +764,7 @@ void handleCard() {
   }
   if (!known) { photoLen = 0; if (photoBuf) { free(photoBuf); photoBuf = nullptr; } cachedUid = ""; }
 
-  showResultPanel(uid, name, group, known, allowed, action.c_str());
+  showResultPanel(uid, name, sid, group, known, allowed, action.c_str());
   Serial.printf("Natija: %s | ruxsat=%d | %s\n", name.c_str(), allowed, action.c_str());
 }
 
@@ -737,6 +804,7 @@ void setup() {
     Serial.println("Boshlang'ich o'quvchi qo'shildi");
   }
   loadStudents();
+  seedStudents();
   loadLogs();
 
   // RFID
