@@ -44,6 +44,18 @@ form.add input[type=file]{color:#8fa3bf;font-size:13px;grid-column:1/-1}
 form.add button{background:#1f6feb;color:#fff;border:0;padding:11px;border-radius:8px;font-size:14px;font-weight:700;grid-column:1/-1;cursor:pointer}
 .footer{color:#5c7099;font-size:11px;margin-top:22px;text-align:center}
 .muted{color:#5c7099;font-size:12px;padding:8px 2px}
+canvas{width:100%;height:auto;display:block}
+.tablewrap{overflow-x:auto}
+@media(max-width:600px){
+  main{padding:12px}
+  header h1{font-size:13px}
+  header .time{font-size:11px}
+  .card .n{font-size:24px}.card{padding:12px}
+  form.add{grid-template-columns:1fr}
+  th,td{padding:6px 8px;font-size:12px}
+  .stu img{width:48px;height:48px}
+  .panel{padding:10px}
+}
 </style></head><body>
 <header><span class="dot"></span><h1>INHA UNIVERSITY — Turniket</h1><span class="time" id="clock">--:--:--</span></header>
 <main>
@@ -71,8 +83,8 @@ form.add button{background:#1f6feb;color:#fff;border:0;padding:11px;border-radiu
 <div class="students" id="insideList"><div class="muted">Bo'sh</div></div>
 
 <div class="two" style="margin-top:18px">
-  <div><h2>Kirdi (bugun)</h2><table><tbody id="kirdiTable"></tbody></table></div>
-  <div><h2>Chiqdi (bugun)</h2><table><tbody id="chiqdiTable"></tbody></table></div>
+  <div><h2>Kirdi (bugun)</h2><div class="tablewrap"><table><tbody id="kirdiTable"></tbody></table></div></div>
+  <div><h2>Chiqdi (bugun)</h2><div class="tablewrap"><table><tbody id="chiqdiTable"></tbody></table></div></div>
 </div>
 
 <h2 style="margin-top:22px">Yangi o'quvchi qo'shish</h2>
@@ -95,9 +107,11 @@ function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function hhmm(ts){return (ts||'').length>=16?ts.substring(11,16):ts}
 async function syncTime(){try{const d=new Date();await fetch('/api/time?ms='+d.getTime());document.getElementById('clock').textContent=d.toTimeString().substring(0,8);}catch(e){}}
 
+function fitCanvas(c){const w=Math.floor(c.clientWidth||c.width);if(w&&c.width!==w){c.width=w;}}
 function drawDonut(inside, outside){
-  const c=document.getElementById('donut'),x=c.getContext('2d');
-  const W=c.width,H=c.height,cx=W/2,cy=H/2+6,R=64;
+  const c=document.getElementById('donut');fitCanvas(c);c.height=180;
+  const x=c.getContext('2d');
+  const W=c.width,H=c.height,cx=W/2,cy=H/2+6,R=Math.min(64,W/3.6);
   x.clearRect(0,0,W,H); x.lineWidth=24;
   const total=inside+outside;
   const a1=total? (inside/total)*Math.PI*2 : 0;
@@ -108,7 +122,8 @@ function drawDonut(inside, outside){
   x.fillStyle='#8fa3bf'; x.font='11px system-ui'; x.fillText('ichida',cx,cy+20);
 }
 function drawBars(hk,hc){
-  const c=document.getElementById('bars'),x=c.getContext('2d');
+  const c=document.getElementById('bars');fitCanvas(c);c.height=190;
+  const x=c.getContext('2d');
   const W=c.width,H=c.height,pad=26,bw=(W-pad*2)/24;
   x.clearRect(0,0,W,H);
   let mx=1; for(let i=0;i<24;i++){mx=Math.max(mx,hk[i],hc[i]);}

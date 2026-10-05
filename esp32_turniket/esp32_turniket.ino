@@ -239,6 +239,8 @@ void loadStudents() {
     if (s.uid.length() == 0) continue;
     if (s.holat.length() == 0) s.holat = "faol";
     students.push_back(s);
+    Serial.printf("  #%d %s | %s %s | %s\n", (int)students.size(),
+                  s.uid.c_str(), s.ism.c_str(), s.familiya.c_str(), s.sid.c_str());
   }
   f.close();
   Serial.printf("O'quvchilar yuklandi: %d\n", (int)students.size());
