@@ -44,6 +44,10 @@ form.add input[type=file]{color:#8fa3bf;font-size:13px;grid-column:1/-1}
 form.add button{background:#1f6feb;color:#fff;border:0;padding:11px;border-radius:8px;font-size:14px;font-weight:700;grid-column:1/-1;cursor:pointer}
 .footer{color:#5c7099;font-size:11px;margin-top:22px;text-align:center}
 .muted{color:#5c7099;font-size:12px;padding:8px 2px}
+.tabs{display:flex;gap:8px;margin-bottom:10px}
+.tabs button{flex:1;background:#0b1120;border:1px solid #2b3c5c;color:#8fa3bf;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
+.tabs button.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.tabs button b{opacity:.85}
 canvas{width:100%;height:auto;display:block}
 .tablewrap{overflow-x:auto}
 @media(max-width:600px){
@@ -82,9 +86,13 @@ canvas{width:100%;height:auto;display:block}
 <h2>Hozir ichida</h2>
 <div class="students" id="insideList"><div class="muted">Bo'sh</div></div>
 
-<div class="two" style="margin-top:18px">
-  <div><h2>Kirdi (bugun)</h2><div class="tablewrap"><table><tbody id="kirdiTable"></tbody></table></div></div>
-  <div><h2>Chiqdi (bugun)</h2><div class="tablewrap"><table><tbody id="chiqdiTable"></tbody></table></div></div>
+<div class="panel" style="margin-top:18px">
+  <div class="tabs">
+    <button id="tabK" class="active" onclick="showTab('k')">Kirdi (bugun) <b id="cntK">0</b></button>
+    <button id="tabC" onclick="showTab('c')">Chiqdi (bugun) <b id="cntC">0</b></button>
+  </div>
+  <div class="tablewrap" id="wrapK"><table><tbody id="kirdiTable"></tbody></table></div>
+  <div class="tablewrap" id="wrapC" style="display:none"><table><tbody id="chiqdiTable"></tbody></table></div>
 </div>
 
 <h2 style="margin-top:22px">Yangi o'quvchi qo'shish</h2>
@@ -141,6 +149,13 @@ function row(l){
   return `<tr><td style="width:64px">${esc(hhmm(l.ts))}</td><td>${esc(l.ism)} ${esc(l.familiya)}</td>
   <td style="color:#8fa3bf">${esc(l.sid)}</td><td><span class="badge ${l.holat==='Kirdi'?'kirdi':'chiqdi'}">${esc(l.holat)}</span></td></tr>`;
 }
+function showTab(t){
+  const k=t==='k';
+  document.getElementById('wrapK').style.display=k?'block':'none';
+  document.getElementById('wrapC').style.display=k?'none':'block';
+  document.getElementById('tabK').classList.toggle('active',k);
+  document.getElementById('tabC').classList.toggle('active',!k);
+}
 async function load(){
   try{
     const r=await fetch('/api/data');const d=await r.json();
@@ -148,6 +163,8 @@ async function load(){
     document.getElementById('s-inside').textContent=d.inside;
     document.getElementById('s-kirdi').textContent=d.todayKirdi;
     document.getElementById('s-chiqdi').textContent=d.todayChiqdi;
+    document.getElementById('cntK').textContent=d.todayKirdi;
+    document.getElementById('cntC').textContent=d.todayChiqdi;
     drawDonut(d.inside,d.total-d.inside);
     drawBars(d.hoursK,d.hoursC);
     document.getElementById('insideList').innerHTML=d.insideList.length?d.insideList.map(s=>`
