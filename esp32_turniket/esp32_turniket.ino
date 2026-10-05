@@ -278,6 +278,35 @@ void appendLogFile(const String& ts, const String& uid, const String& ism,
   if (logs.size() > 300) logs.erase(logs.begin());
 }
 
+// Bitta o'quvchiga bir nechta karta (UID'lar ';' bilan ajratiladi)
+bool uidMatches(const String& stored, const String& scanned) {
+  int start = 0;
+  while (start <= (int)stored.length()) {
+    int semi = stored.indexOf(';', start);
+    String part = (semi < 0) ? stored.substring(start) : stored.substring(start, semi);
+    part.trim();
+    if (part.equalsIgnoreCase(scanned)) return true;
+    if (semi < 0) break;
+    start = semi + 1;
+  }
+  return false;
+}
+
+// Qo'shimcha kartani biriktirish (bir marta)
+void patchCards() {
+  if (FFat.exists("/patch1.done")) return;
+  for (auto& s : students) {
+    if (s.uid.indexOf("00B9B41A") >= 0 && s.uid.indexOf("97709F25") < 0) {
+      s.uid += ";97709F25";
+      saveStudents();
+      Serial.println("Patch: 97709F25 Bekmirzaga biriktirildi");
+      break;
+    }
+  }
+  File f = FFat.open("/patch1.done", "w");
+  if (f) { f.println("ok"); f.close(); }
+}
+
 void loadLogs() {
   logs.clear();
   lastState.clear();
@@ -730,7 +759,7 @@ void handleCard() {
 
   int idx = -1;
   for (size_t i = 0; i < students.size(); i++) {
-    if (students[i].uid.equalsIgnoreCase(uid)) { idx = (int)i; break; }
+    if (uidMatches(students[i].uid, uid)) { idx = (int)i; break; }
   }
   bool known = idx >= 0;
   bool allowed = false;
@@ -805,6 +834,7 @@ void setup() {
   }
   loadStudents();
   seedStudents();
+  patchCards();
   loadLogs();
 
   // RFID
