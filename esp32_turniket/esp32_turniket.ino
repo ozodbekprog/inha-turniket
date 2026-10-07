@@ -609,25 +609,25 @@ void drawHint() {
   lcd.setTextDatum(textdatum_t::bottom_center);
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(TFT_WHITE);
-  lcd.drawString("Kartani taqdim eting", 240, 314);
+  lcd.drawString("Kartani taqdim eting", 160, 476);
 }
 
 void updateClock(bool force = false) {
   uint32_t now = millis() / 1000;
   if (!force && now == lastClock) return;
   lastClock = now;
-  lcd.fillRect(340, 4, 136, 20, BG_BLUE);
+  lcd.fillRect(226, 4, 90, 20, BG_BLUE);
   lcd.setTextDatum(textdatum_t::top_right);
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(TFT_WHITE);
-  lcd.drawString(clockShort(), 474, 4);
+  lcd.drawString(clockShort(), 314, 4);
 }
 
 void drawBackground() {
   lcd.drawJpg(logo_jpg, logo_jpg_len, 0, 0);
   drawCornerLabels();
   drawHint();
-  lcd.fillRect(340, 4, 136, 20, BG_BLUE);
+  lcd.fillRect(226, 4, 90, 20, BG_BLUE);
   lastClock = UINT32_MAX;
   updateClock(true);
 }
@@ -653,60 +653,61 @@ void showResultPanel(const String& uid, const String& name, const String& sid,
 
   uint16_t color = allowed ? GRN : RED;
 
-  lcd.fillRoundRect(20, 30, 440, 270, 16, PANEL);
-  lcd.drawRoundRect(20, 30, 440, 270, 16, color);
-  lcd.drawRoundRect(23, 33, 434, 264, 14, color);
+  lcd.fillRoundRect(8, 36, 304, 408, 14, PANEL);
+  lcd.drawRoundRect(8, 36, 304, 408, 14, color);
+  lcd.drawRoundRect(11, 39, 298, 402, 12, color);
 
   lcd.setTextDatum(textdatum_t::middle_center);
   lcd.setFont(&fonts::Font4);
   lcd.setTextColor(color, PANEL);
-  lcd.drawString(allowed ? "XUSH KELIBSIZ!" : "RUXSAT YO'Q", 240, 58);
+  lcd.drawString(allowed ? "XUSH KELIBSIZ!" : "RUXSAT YO'Q", 160, 62);
 
-  lcd.drawRect(45, 95, 160, 160, 0x8410);
+  // Rasm (150x150, markazda)
+  int px = 85, py = 86, ps = 150;
+  lcd.drawRect(px, py, ps, ps, 0x8410);
   if (photoLen > 100) {
-    lcd.drawJpg(photoBuf, photoLen, 46, 96, 158, 158);
+    lcd.drawJpg(photoBuf, photoLen, px + 1, py + 1, ps - 2, ps - 2);
   } else {
-    lcd.fillRect(46, 96, 158, 158, 0x18E3);
+    lcd.fillRect(px + 1, py + 1, ps - 2, ps - 2, 0x18E3);
     lcd.setFont(&fonts::Font0);
     lcd.setTextColor(0xC618, 0x18E3);
-    lcd.drawString(known ? "RASM YO'Q" : "NOTANISH", 125, 175);
+    lcd.drawString(known ? "RASM YO'Q" : "NOTANISH", 160, py + ps / 2);
   }
 
-  lcd.setTextDatum(textdatum_t::middle_left);
+  char buf[64];
   lcd.setFont(&fonts::Font4);
   lcd.setTextColor(TFT_WHITE, PANEL);
-  char buf[64];
   if (known) {
     snprintf(buf, sizeof(buf), "%s", name.c_str());
-    if (strlen(buf) > 22) { buf[20] = '.'; buf[21] = '.'; buf[22] = '.'; buf[23] = 0; }
+    if (strlen(buf) > 17) { buf[15] = '.'; buf[16] = '.'; buf[17] = '.'; buf[18] = 0; }
   } else {
     snprintf(buf, sizeof(buf), "Karta bazada yo'q");
   }
-  lcd.drawString(buf, 225, 115);
+  lcd.drawString(buf, 160, 264);
 
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(YEL, PANEL);
   snprintf(buf, sizeof(buf), "Talaba ID: %s", sid.length() ? sid.c_str() : "-");
-  lcd.drawString(buf, 225, 148);
+  lcd.drawString(buf, 160, 300);
 
   lcd.setTextColor(TFT_CYAN, PANEL);
   snprintf(buf, sizeof(buf), "Guruh: %s", group.length() ? group.c_str() : "-");
-  lcd.drawString(buf, 225, 170);
+  lcd.drawString(buf, 160, 324);
 
   lcd.setFont(&fonts::Font0);
   lcd.setTextColor(0xC618, PANEL);
   snprintf(buf, sizeof(buf), "Karta: %s", uid.c_str());
-  lcd.drawString(buf, 225, 192);
+  lcd.drawString(buf, 160, 346);
 
   char tbuf[32] = "";
   snprintf(tbuf, sizeof(tbuf), "%s", nowString().c_str());
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(0xC618, PANEL);
-  lcd.drawString(tbuf, 225, 212);
+  lcd.drawString(tbuf, 160, 366);
 
-  lcd.setFont(&fonts::Font2);
+  lcd.setFont(&fonts::Font4);
   lcd.setTextColor(color, PANEL);
-  lcd.drawString(action, 225, 238);
+  lcd.drawString(action, 160, 402);
 }
 
 // =================== RFID ===================
@@ -847,7 +848,7 @@ void setup() {
 
   // Ekran
   lcd.init();
-  lcd.setRotation(1);
+  lcd.setRotation(0);
   drawBackground();
 
   // WiFi AP
