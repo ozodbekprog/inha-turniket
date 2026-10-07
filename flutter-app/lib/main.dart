@@ -7,12 +7,23 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() {
-  runApp(const TurniketApp());
+// ================= ADMINLAR =================
+const Map<String, String> ADMINS = {
+  'tursunmuratov': 'prorektor123',
+  'boburxojimirzayev': 'boburboss',
+  'bekmirzo': 'bekmirzotutor',
+};
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final user = prefs.getString('user');
+  runApp(TurniketApp(loggedUser: user));
 }
 
 class TurniketApp extends StatelessWidget {
-  const TurniketApp({super.key});
+  const TurniketApp({super.key, this.loggedUser});
+  final String? loggedUser;
 
   @override
   Widget build(BuildContext context) {
@@ -37,10 +48,187 @@ class TurniketApp extends StatelessWidget {
       title: 'INHA Turniket Admin',
       debugShowCheckedModeBanner: false,
       theme: base,
-      home: const DashboardPage(),
+      home: loggedUser == null
+          ? const LoginPage()
+          : DashboardPage(user: loggedUser!),
     );
   }
 }
+
+// ================= LOGIN =================
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _loginCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _obscure = true;
+  String? _error;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _loginCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final login = _loginCtrl.text.trim().toLowerCase();
+    final pass = _passCtrl.text;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (ADMINS.containsKey(login) && ADMINS[login] == pass) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user', login);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => DashboardPage(user: login)),
+      );
+    } else {
+      setState(() {
+        _error = 'Login yoki parol xato';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Yuqorida INHA logotipi
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1F6FEB).withOpacity(0.35),
+                        blurRadius: 30,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Image.asset('assets/logo.png', width: 130, height: 130),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'INHA UNIVERSITY',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Turniket boshqaruv tizimi',
+                  style: TextStyle(color: Color(0xFF8FA3BF), fontSize: 13),
+                ),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: _loginCtrl,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'Login',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    filled: true,
+                    fillColor: const Color(0xFF121A2C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF2B3C5C)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _passCtrl,
+                  obscureText: _obscure,
+                  onSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Parol',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF121A2C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF2B3C5C)),
+                    ),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Color(0xFFFF7675), size: 18),
+                      const SizedBox(width: 6),
+                      Text(_error!,
+                          style: const TextStyle(
+                              color: Color(0xFFFF7675), fontSize: 13)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1F6FEB),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Kirish',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Faqat administratorlar uchun',
+                  style: TextStyle(color: Color(0xFF5C7099), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ================= API =================
 
 class Api {
   static String base = 'http://192.168.4.1';
@@ -62,7 +250,8 @@ class Api {
 
   static Future<void> timeSync() async {
     try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 3);
       final ms = DateTime.now().millisecondsSinceEpoch;
       final req = await client
           .getUrl(Uri.parse('$base/api/time?ms=$ms'))
@@ -87,8 +276,11 @@ class Api {
   static String photoUrl(String photo) => '$base/photos/$photo';
 }
 
+// ================= DASHBOARD =================
+
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({super.key, required this.user});
+  final String user;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -117,7 +309,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final prefs = await SharedPreferences.getInstance();
     Api.base = prefs.getString('server') ?? 'http://192.168.4.1';
     await _load();
-    timer = Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
+    timer =
+        Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -147,6 +340,56 @@ class _DashboardPageState extends State<DashboardPage> {
         });
       }
     }
+  }
+
+  Future<void> _openProfile() async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF121A2C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/logo.png', width: 72, height: 72),
+            const SizedBox(height: 10),
+            Text(
+              widget.user,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 2),
+            const Text('Administrator',
+                style: TextStyle(color: Color(0xFF8FA3BF), fontSize: 13)),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF7F1D1D),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('user');
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (r) => false,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Chiqish'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openSettings() async {
@@ -198,7 +441,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('O\'chirilsinmi?'),
+        title: const Text('O\'chirilsinmi?'),
         content: Text(name),
         actions: [
           TextButton(
@@ -241,6 +484,11 @@ class _DashboardPageState extends State<DashboardPage> {
             tooltip: 'Server manzili',
             onPressed: _openSettings,
             icon: const Icon(Icons.settings),
+          ),
+          IconButton(
+            tooltip: 'Profil',
+            onPressed: _openProfile,
+            icon: const Icon(Icons.account_circle),
           ),
         ],
       ),
@@ -405,13 +653,9 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: _tabButton(0, 'Kirdi'),
-                ),
+                Expanded(child: _tabButton(0, 'Kirdi')),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: _tabButton(1, 'Chiqdi'),
-                ),
+                Expanded(child: _tabButton(1, 'Chiqdi')),
               ],
             ),
             const SizedBox(height: 6),
@@ -440,7 +684,8 @@ class _DashboardPageState extends State<DashboardPage> {
           color: active ? const Color(0xFF1F6FEB) : const Color(0xFF0B1120),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: active ? const Color(0xFF1F6FEB) : const Color(0xFF2B3C5C)),
+              color:
+                  active ? const Color(0xFF1F6FEB) : const Color(0xFF2B3C5C)),
         ),
         child: Center(
           child: Text(
@@ -501,7 +746,8 @@ class _DashboardPageState extends State<DashboardPage> {
         isThreeLine: true,
         trailing: IconButton(
           icon: const Icon(Icons.close, color: Color(0xFFFF7675)),
-          onPressed: () => _delete('${s['uid']}', '${s['ism']} ${s['familiya']}'),
+          onPressed: () =>
+              _delete('${s['uid']}', '${s['ism']} ${s['familiya']}'),
         ),
       ),
     );
@@ -576,8 +822,8 @@ class DonutPainter extends CustomPainter {
     canvas.drawCircle(c, r, bg);
     if (total > 0) {
       final a = (inside / total) * math.pi * 2;
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r), -math.pi / 2, a,
-          false, fg);
+      canvas.drawArc(
+          Rect.fromCircle(center: c, radius: r), -math.pi / 2, a, false, fg);
     }
     final tp = TextPainter(
       text: TextSpan(
@@ -644,7 +890,8 @@ class BarsPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(pad + i * bw + bw / 2 - tp.width / 2, baseY + 2));
+      tp.paint(
+          canvas, Offset(pad + i * bw + bw / 2 - tp.width / 2, baseY + 2));
     }
   }
 
@@ -686,7 +933,8 @@ class _ConnectionHelp extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text('Server: $server',
-                style: const TextStyle(color: Color(0xFF5C7099), fontSize: 11)),
+                style:
+                    const TextStyle(color: Color(0xFF5C7099), fontSize: 11)),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () => onRetry(),
