@@ -590,9 +590,24 @@ void handleReset() {
   server.send(200, "application/json", "{\"ok\":1}");
 }
 
-// =================== EXCEL EKSPORT (.xls SpreadsheetML) ===================
+// =================== EXCEL (.xlsx) EKSPORT ===================
+// ESP'da minimal ZIP (store) + XLSX generator
 
-String xlsEsc(const String& s) {
+uint32_t crc32Of(const String& s) {
+  uint32_t crc = 0xFFFFFFFF;
+  const uint8_t* p = (const uint8_t*)s.c_str();
+  for (size_t i = 0; i < s.length(); i++) {
+    crc ^= p[i];
+    for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320 & (-(int32_t)(crc & 1)));
+  }
+  return crc ^ 0xFFFFFFFF;
+}
+void put16(String& s, uint16_t v) { s += (char)(v & 0xFF); s += (char)(v >> 8); }
+void put32(String& s, uint32_t v) {
+  s += (char)(v & 0xFF); s += (char)((v >> 8) & 0xFF);
+  s += (char)((v >> 16) & 0xFF); s += (char)((v >> 24) & 0xFF);
+}
+String xmlEsc(const String& s) {
   String r = "";
   for (size_t i = 0; i < s.length(); i++) {
     char c = s[i];
@@ -605,47 +620,40 @@ String xlsEsc(const String& s) {
   }
   return r;
 }
-
-void xlsRow(String& out, std::initializer_list<const char*> cells) {
-  out += "<Row>";
-  for (auto c : cells) {
-    out += "<Cell><Data ss:Type=\"String\">";
-    out += xlsEsc(String(c));
-    out += "</Data></Cell>";
+String xmlRow(const char* const* cells, int n) {
+  String r = "<row>";
+  for (int i = 0; i < n; i++) {
+    r += "<c t=\"inlineStr\"><is><t xml:space=\"preserve\">";
+    r += xmlEsc(String(cells[i]));
+    r += "</t></is></c>";
   }
-  out += "</Row>\r\n";
+  r += "</row>\r\n";
+  return r;
 }
 
-void handleExport() {
-  String out;
-  out.reserve(110000);
-  out += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-  out += "<?mso-application progid=\"Excel.Sheet\"?>\n";
-  out += "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" "
-         "xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">\n";
-
-  // 1-varaq: Davomat (oxirgi 1000 yozuv)
-  out += "<Worksheet ss:Name=\"Davomat\"><Table>";
-  xlsRow(out, {"Vaqt", "UID", "Ism", "Guruh", "Holat"});
-
+String buildSheetDavomat() {
+  String sh;
+  sh.reserve(110000);
+  sh += "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
+  sh += "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>";
+  const char* hdr[5] = {"Vaqt", "UID", "Ism", "Guruh", "Holat"};
+  sh += xmlRow(hdr, 5);
   File f = FFat.open("/logs.csv", "r");
   if (f) {
     int total = 0;
     while (f.available()) {
-      String line = f.readStringUntil('\n');
-      line.trim();
+      String line = f.readStringUntil('\n'); line.trim();
       if (line.length() > 4) total++;
     }
     f.seek(0);
     int skip = total > 1000 ? total - 1000 : 0;
     int seen = 0;
     while (f.available()) {
-      String line = f.readStringUntil('\n');
-      line.trim();
+      String line = f.readStringUntil('\n'); line.trim();
       if (line.length() <= 4) continue;
       seen++;
       if (seen <= skip) continue;
-      String parts[5];
+      String parts[5], tmp;
       int idx = 0, start = 0;
       for (int i = 0; i <= (int)line.length() && idx < 5; i++) {
         if (i == (int)line.length() || line[i] == ',') {
@@ -653,25 +661,109 @@ void handleExport() {
           start = i + 1;
         }
       }
-      xlsRow(out, {parts[0].c_str(), parts[1].c_str(), parts[2].c_str(),
-                   parts[3].c_str(), parts[4].c_str()});
+      for (int i = idx; i < 5; i++) parts[i] = "";
+      const char* cells[5] = {parts[0].c_str(), parts[1].c_str(), parts[2].c_str(),
+                              parts[3].c_str(), parts[4].c_str()};
+      sh += xmlRow(cells, 5);
     }
     f.close();
   }
-  out += "</Table></Worksheet>\n";
+  sh += "</sheetData></worksheet>";
+  return sh;
+}
 
-  // 2-varaq: O'quvchilar
-  out += "<Worksheet ss:Name=\"Oquvchilar\"><Table>";
-  xlsRow(out, {"UID", "Ism", "Familiya", "Talaba ID", "Guruh", "Holat"});
+String buildSheetStudents() {
+  String sh;
+  sh.reserve(12000);
+  sh += "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
+  sh += "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>";
+  const char* hdr[6] = {"UID", "Ism", "Familiya", "Talaba ID", "Guruh", "Holat"};
+  sh += xmlRow(hdr, 6);
   for (auto& s : students) {
-    xlsRow(out, {s.uid.c_str(), s.ism.c_str(), s.familiya.c_str(),
-                 s.sid.c_str(), s.guruh.c_str(), s.holat.c_str()});
+    const char* cells[6] = {s.uid.c_str(), s.ism.c_str(), s.familiya.c_str(),
+                            s.sid.c_str(), s.guruh.c_str(), s.holat.c_str()};
+    sh += xmlRow(cells, 6);
   }
-  out += "</Table></Worksheet>\n";
-  out += "</Workbook>";
+  sh += "</sheetData></worksheet>";
+  return sh;
+}
 
-  server.sendHeader("Content-Disposition", "attachment; filename=\"inha-turniket.xls\"");
-  server.send(200, "application/vnd.ms-excel; charset=utf-8", out);
+void handleExport() {
+  String ct = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+    "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+    "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+    "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+    "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+    "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+    "<Override PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+    "</Types>";
+  String rels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+    "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+    "</Relationships>";
+  String wb = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+    "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+    "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>"
+    "<sheet name=\"Davomat\" sheetId=\"1\" r:id=\"rId1\"/>"
+    "<sheet name=\"Oquvchilar\" sheetId=\"2\" r:id=\"rId2\"/>"
+    "</sheets></workbook>";
+  String wbrels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+    "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+    "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet2.xml\"/>"
+    "</Relationships>";
+
+  String s1 = buildSheetDavomat();
+  String s2 = buildSheetStudents();
+
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.sendHeader("Content-Disposition", "attachment; filename=\"inha-turniket.xlsx\"");
+  server.send(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "");
+
+  struct E { String name; uint32_t crc, size, off; };
+  std::vector<E> dir;
+  uint32_t offset = 0;
+
+  auto addPart = [&](const char* name, String& data) {
+    uint32_t crc = crc32Of(data);
+    String lh;
+    put32(lh, 0x04034b50); put16(lh, 20); put16(lh, 0); put16(lh, 0);
+    put16(lh, 0); put16(lh, 0x21);
+    put32(lh, crc); put32(lh, data.length()); put32(lh, data.length());
+    put16(lh, strlen(name)); put16(lh, 0);
+    lh += name;
+    server.sendContent(lh);
+    server.sendContent(data);
+    E e; e.name = name; e.crc = crc; e.size = data.length(); e.off = offset;
+    dir.push_back(e);
+    offset += lh.length() + data.length();
+    data = String();
+  };
+
+  addPart("[Content_Types].xml", ct);
+  addPart("_rels/.rels", rels);
+  addPart("xl/workbook.xml", wb);
+  addPart("xl/_rels/workbook.xml.rels", wbrels);
+  addPart("xl/worksheets/sheet1.xml", s1);
+  addPart("xl/worksheets/sheet2.xml", s2);
+
+  String cd;
+  cd.reserve(600);
+  for (auto& e : dir) {
+    put32(cd, 0x02014b50); put16(cd, 20); put16(cd, 20); put16(cd, 0); put16(cd, 0);
+    put16(cd, 0); put16(cd, 0x21);
+    put32(cd, e.crc); put32(cd, e.size); put32(cd, e.size);
+    put16(cd, e.name.length()); put16(cd, 0); put16(cd, 0);
+    put16(cd, 0); put16(cd, 0); put32(cd, 0); put32(cd, e.off);
+    cd += e.name;
+  }
+  server.sendContent(cd);
+  String eocd;
+  put32(eocd, 0x06054b50); put16(eocd, 0); put16(eocd, 0);
+  put16(eocd, dir.size()); put16(eocd, dir.size());
+  put32(eocd, cd.length()); put32(eocd, offset); put16(eocd, 0);
+  server.sendContent(eocd);
+  server.sendContent("");
 }
 
 void handleNotFound() {
