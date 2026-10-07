@@ -317,6 +317,19 @@ void patchCards() {
   if (f) { f.println("ok"); f.close(); }
 }
 
+// Eski davomat ma'lumotlarini bir marta tozalash
+void wipeOldData() {
+  if (FFat.exists("/clear_1.done")) return;
+  FFat.remove("/logs.csv");
+  FFat.remove("/kirdi.csv");
+  FFat.remove("/chiqdi.csv");
+  logs.clear();
+  lastState.clear();
+  File f = FFat.open("/clear_1.done", "w");
+  if (f) { f.println("ok"); f.close(); }
+  Serial.println("Eski davomat ma'lumotlari o'chirildi");
+}
+
 void loadLogs() {
   logs.clear();
   lastState.clear();
@@ -585,6 +598,8 @@ void handleDelete() {
 
 void handleReset() {
   FFat.remove("/logs.csv");
+  FFat.remove("/kirdi.csv");
+  FFat.remove("/chiqdi.csv");
   logs.clear();
   lastState.clear();
   server.send(200, "application/json", "{\"ok\":1}");
@@ -1034,6 +1049,7 @@ void setup() {
   loadStudents();
   seedStudents();
   patchCards();
+  wipeOldData();
   loadLogs();
 
   // RFID

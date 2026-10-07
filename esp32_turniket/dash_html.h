@@ -62,7 +62,7 @@ canvas{width:100%;height:auto;display:block}
   .panel{padding:10px}
 }
 </style></head><body>
-<header><span class="dot"></span><h1>INHA UNIVERSITY — Turniket</h1><a class="dl" href="/api/export">⬇ Excel</a><span class="time" id="clock">--:--:--</span></header>
+<header><span class="dot"></span><h1>INHA UNIVERSITY — Turniket</h1><a class="dl" href="/api/export">⬇ Excel</a><a class="dl" style="background:#7f1d1d" href="#" onclick="resetAll(event)">🗑 Tozalash</a><span class="time" id="clock">--:--:--</span></header>
 <main>
 <div class="cards">
   <div class="card b"><div class="n" id="s-total">0</div><div class="t">O'quvchilar</div></div>
@@ -176,5 +176,6 @@ async function load(){
   }catch(e){}
 }
 async function del(uid){if(!confirm('O\'chirilsinmi?'))return;await fetch('/api/del?uid='+encodeURIComponent(uid));load();}
+async function resetAll(e){e.preventDefault();if(!confirm('Barcha davomat yozuvlari o\'chirilsinmi?'))return;await fetch('/api/reset');load();}
 syncTime();load();setInterval(load,3000);setInterval(syncTime,30000);
 </script></body></html>)HTML";
