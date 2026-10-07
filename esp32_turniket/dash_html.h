@@ -9,7 +9,8 @@ static const char PAGE[] PROGMEM = R"HTML(<!doctype html><html lang="uz"><head><
 header{background:linear-gradient(90deg,#101a30,#0b1120);padding:14px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #22304a;position:sticky;top:0;z-index:5}
 header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px}
 header .dot{width:10px;height:10px;border-radius:50%;background:#2ecc71;box-shadow:0 0 10px #2ecc71}
-header .time{margin-left:auto;color:#8fa3bf;font-size:13px}
+header .dl{margin-left:auto;background:#1f6feb;color:#fff;text-decoration:none;padding:8px 13px;border-radius:9px;font-size:12px;font-weight:700}
+header .time{margin-left:12px;color:#8fa3bf;font-size:13px}
 main{padding:18px;max-width:1150px;margin:0 auto}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .card{background:#121a2c;border:1px solid #22304a;border-radius:14px;padding:14px 16px}
@@ -61,7 +62,7 @@ canvas{width:100%;height:auto;display:block}
   .panel{padding:10px}
 }
 </style></head><body>
-<header><span class="dot"></span><h1>INHA UNIVERSITY — Turniket</h1><span class="time" id="clock">--:--:--</span></header>
+<header><span class="dot"></span><h1>INHA UNIVERSITY — Turniket</h1><a class="dl" href="/api/export">⬇ Excel</a><span class="time" id="clock">--:--:--</span></header>
 <main>
 <div class="cards">
   <div class="card b"><div class="n" id="s-total">0</div><div class="t">O'quvchilar</div></div>

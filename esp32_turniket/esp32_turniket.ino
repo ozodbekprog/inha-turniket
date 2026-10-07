@@ -573,6 +573,90 @@ void handleReset() {
   server.send(200, "application/json", "{\"ok\":1}");
 }
 
+// =================== EXCEL EKSPORT (.xls SpreadsheetML) ===================
+
+String xlsEsc(const String& s) {
+  String r = "";
+  for (size_t i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if (c == '&') r += "&amp;";
+    else if (c == '<') r += "&lt;";
+    else if (c == '>') r += "&gt;";
+    else if (c == '"') r += "&quot;";
+    else if (c == '\'') r += "&apos;";
+    else if ((uint8_t)c >= 32) r += c;
+  }
+  return r;
+}
+
+void xlsRow(String& out, std::initializer_list<const char*> cells) {
+  out += "<Row>";
+  for (auto c : cells) {
+    out += "<Cell><Data ss:Type=\"String\">";
+    out += xlsEsc(String(c));
+    out += "</Data></Cell>";
+  }
+  out += "</Row>\r\n";
+}
+
+void handleExport() {
+  String out;
+  out.reserve(110000);
+  out += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+  out += "<?mso-application progid=\"Excel.Sheet\"?>\n";
+  out += "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" "
+         "xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">\n";
+
+  // 1-varaq: Davomat (oxirgi 1000 yozuv)
+  out += "<Worksheet ss:Name=\"Davomat\"><Table>";
+  xlsRow(out, {"Vaqt", "UID", "Ism", "Guruh", "Holat"});
+
+  File f = FFat.open("/logs.csv", "r");
+  if (f) {
+    int total = 0;
+    while (f.available()) {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 4) total++;
+    }
+    f.seek(0);
+    int skip = total > 1000 ? total - 1000 : 0;
+    int seen = 0;
+    while (f.available()) {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() <= 4) continue;
+      seen++;
+      if (seen <= skip) continue;
+      String parts[5];
+      int idx = 0, start = 0;
+      for (int i = 0; i <= (int)line.length() && idx < 5; i++) {
+        if (i == (int)line.length() || line[i] == ',') {
+          parts[idx++] = line.substring(start, i);
+          start = i + 1;
+        }
+      }
+      xlsRow(out, {parts[0].c_str(), parts[1].c_str(), parts[2].c_str(),
+                   parts[3].c_str(), parts[4].c_str()});
+    }
+    f.close();
+  }
+  out += "</Table></Worksheet>\n";
+
+  // 2-varaq: O'quvchilar
+  out += "<Worksheet ss:Name=\"Oquvchilar\"><Table>";
+  xlsRow(out, {"UID", "Ism", "Familiya", "Talaba ID", "Guruh", "Holat"});
+  for (auto& s : students) {
+    xlsRow(out, {s.uid.c_str(), s.ism.c_str(), s.familiya.c_str(),
+                 s.sid.c_str(), s.guruh.c_str(), s.holat.c_str()});
+  }
+  out += "</Table></Worksheet>\n";
+  out += "</Workbook>";
+
+  server.sendHeader("Content-Disposition", "attachment; filename=\"inha-turniket.xls\"");
+  server.send(200, "application/vnd.ms-excel; charset=utf-8", out);
+}
+
 void handleNotFound() {
   String path = server.uri();
   if (path.startsWith("/photos/")) {
@@ -863,6 +947,7 @@ void setup() {
   server.on("/api/time", handleTime);
   server.on("/api/del", handleDelete);
   server.on("/api/reset", handleReset);
+  server.on("/api/export", handleExport);
   server.on("/add", HTTP_POST, handleAddDone, handleUpload);
   server.onNotFound(handleNotFound);
   server.begin();
