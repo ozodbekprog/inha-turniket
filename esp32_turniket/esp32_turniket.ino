@@ -381,6 +381,21 @@ int deniedCount() {
 
 #include "dash_html.h"
 
+String studentState(const String& storedUid, String& viaUid) {
+  String st = ""; viaUid = "";
+  int start = 0;
+  while (start <= (int)storedUid.length()) {
+    int semi = storedUid.indexOf(';', start);
+    String part = (semi < 0) ? storedUid.substring(start) : storedUid.substring(start, semi);
+    part.trim();
+    auto it = lastState.find(part);
+    if (it != lastState.end()) { st = it->second; viaUid = part; }
+    if (semi < 0) break;
+    start = semi + 1;
+  }
+  return st;
+}
+
 String apiData() {
   String today = "";
   if (clockSet) {
@@ -439,31 +454,33 @@ String apiData() {
   }
   j += "]";
 
-  // Bugun kirdi / chiqdi ro'yxatlari
+  // Kirdi (ichida) va Chiqdi statusidagi o'quvchilar
   j += ",\"kirdiList\":[";
-  { bool f2 = true; int cnt = 0;
-    for (int i = (int)logs.size() - 1; i >= 0 && cnt < 40; i--) {
-      auto& e = logs[i];
-      if (e.holat != "Kirdi") continue;
-      if (clockSet && !e.ts.startsWith(today)) continue;
-      String sid = "";
-      for (auto& s : students) if (uidMatches(s.uid, e.uid)) { sid = s.sid; break; }
-      if (!f2) j += ","; f2 = false; cnt++;
-      j += "{\"ts\":\"" + jsonEsc(e.ts) + "\",\"ism\":\"" + jsonEsc(e.ism) +
-           "\",\"familiya\":\"\",\"sid\":\"" + jsonEsc(sid) + "\",\"holat\":\"Kirdi\"}";
+  { bool f2 = true;
+    for (auto& s : students) {
+      String via; String st = studentState(s.uid, via);
+      if (st != "Kirdi") continue;
+      String ts = "";
+      for (int i = (int)logs.size() - 1; i >= 0; i--)
+        if (logs[i].uid == via && logs[i].holat == "Kirdi") { ts = logs[i].ts; break; }
+      if (!f2) j += ","; f2 = false;
+      j += "{\"ts\":\"" + jsonEsc(ts) + "\",\"ism\":\"" + jsonEsc(s.ism) +
+           "\",\"familiya\":\"" + jsonEsc(s.familiya) + "\",\"sid\":\"" + jsonEsc(s.sid) +
+           "\",\"photo\":\"" + jsonEsc(s.photo) + "\",\"holat\":\"Kirdi\"}";
     }
   }
   j += "],\"chiqdiList\":[";
-  { bool f2 = true; int cnt = 0;
-    for (int i = (int)logs.size() - 1; i >= 0 && cnt < 40; i--) {
-      auto& e = logs[i];
-      if (e.holat != "Chiqdi") continue;
-      if (clockSet && !e.ts.startsWith(today)) continue;
-      String sid = "";
-      for (auto& s : students) if (uidMatches(s.uid, e.uid)) { sid = s.sid; break; }
-      if (!f2) j += ","; f2 = false; cnt++;
-      j += "{\"ts\":\"" + jsonEsc(e.ts) + "\",\"ism\":\"" + jsonEsc(e.ism) +
-           "\",\"familiya\":\"\",\"sid\":\"" + jsonEsc(sid) + "\",\"holat\":\"Chiqdi\"}";
+  { bool f2 = true;
+    for (auto& s : students) {
+      String via; String st = studentState(s.uid, via);
+      if (st != "Chiqdi") continue;
+      String ts = "";
+      for (int i = (int)logs.size() - 1; i >= 0; i--)
+        if (logs[i].uid == via && logs[i].holat == "Chiqdi") { ts = logs[i].ts; break; }
+      if (!f2) j += ","; f2 = false;
+      j += "{\"ts\":\"" + jsonEsc(ts) + "\",\"ism\":\"" + jsonEsc(s.ism) +
+           "\",\"familiya\":\"" + jsonEsc(s.familiya) + "\",\"sid\":\"" + jsonEsc(s.sid) +
+           "\",\"photo\":\"" + jsonEsc(s.photo) + "\",\"holat\":\"Chiqdi\"}";
     }
   }
   j += "]";

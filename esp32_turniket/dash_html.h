@@ -84,13 +84,10 @@ canvas{width:100%;height:auto;display:block}
   </div>
 </div>
 
-<h2>Hozir ichida</h2>
-<div class="students" id="insideList"><div class="muted">Bo'sh</div></div>
-
 <div class="panel" style="margin-top:18px">
   <div class="tabs">
-    <button id="tabK" class="active" onclick="showTab('k')">Kirdi (bugun) <b id="cntK">0</b></button>
-    <button id="tabC" onclick="showTab('c')">Chiqdi (bugun) <b id="cntC">0</b></button>
+    <button id="tabK" class="active" onclick="showTab('k')">Kirdi <b id="cntK">0</b></button>
+    <button id="tabC" onclick="showTab('c')">Chiqdi <b id="cntC">0</b></button>
   </div>
   <div class="tablewrap" id="wrapK"><table><tbody id="kirdiTable"></tbody></table></div>
   <div class="tablewrap" id="wrapC" style="display:none"><table><tbody id="chiqdiTable"></tbody></table></div>
@@ -147,7 +144,8 @@ function drawBars(hk,hc){
   for(let i=0;i<24;i+=3){x.fillText(String(i).padStart(2,'0'),pad+i*bw+bw/2,H-6);}
 }
 function row(l){
-  return `<tr><td style="width:64px">${esc(hhmm(l.ts))}</td><td>${esc(l.ism)} ${esc(l.familiya)}</td>
+  const av = l.photo ? `<img src="/photos/${esc(l.photo)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;background:#1b263b">` : '';
+  return `<tr><td style="width:64px">${esc(hhmm(l.ts))}</td><td>${av}${esc(l.ism)} ${esc(l.familiya)}</td>
   <td style="color:#8fa3bf">${esc(l.sid)}</td><td><span class="badge ${l.holat==='Kirdi'?'kirdi':'chiqdi'}">${esc(l.holat)}</span></td></tr>`;
 }
 function showTab(t){
@@ -164,14 +162,10 @@ async function load(){
     document.getElementById('s-inside').textContent=d.inside;
     document.getElementById('s-kirdi').textContent=d.todayKirdi;
     document.getElementById('s-chiqdi').textContent=d.todayChiqdi;
-    document.getElementById('cntK').textContent=d.todayKirdi;
-    document.getElementById('cntC').textContent=d.todayChiqdi;
+    document.getElementById('cntK').textContent=d.kirdiList.length;
+    document.getElementById('cntC').textContent=d.chiqdiList.length;
     drawDonut(d.inside,d.total-d.inside);
     drawBars(d.hoursK,d.hoursC);
-    document.getElementById('insideList').innerHTML=d.insideList.length?d.insideList.map(s=>`
-      <div class="stu">${s.photo?`<img src="/photos/${esc(s.photo)}">`:''}
-      <div class="info"><b>${esc(s.ism)} ${esc(s.familiya)}</b><span>${esc(s.sid)}</span>
-      <div class="in">ichida • ${esc(hhmm(s.ts))}</div></div></div>`).join(''):'<div class="muted">Bo\'sh</div>';
     document.getElementById('kirdiTable').innerHTML=d.kirdiList.length?d.kirdiList.map(row).join(''):'<tr><td class="muted">Bo\'sh</td></tr>';
     document.getElementById('chiqdiTable').innerHTML=d.chiqdiList.length?d.chiqdiList.map(row).join(''):'<tr><td class="muted">Bo\'sh</td></tr>';
     document.getElementById('students').innerHTML=d.students.map(s=>`
