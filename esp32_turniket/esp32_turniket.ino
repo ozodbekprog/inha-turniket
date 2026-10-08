@@ -1146,11 +1146,24 @@ void setup() {
       lcd.setFont(&fonts::Font2);
       lcd.setTextColor(TFT_WHITE);
       lcd.drawString("Kalibrovka: nuqtalarni qalam bilan bosing", 160, 40);
-      lcd.calibrateTouch(calData, 0xFFFF, 0x0000, 20);
-      prefs.begin("tftcal", false);
-      prefs.putBytes("calv2", calData, sizeof(calData));
-      prefs.end();
-      Serial.println("Touch kalibrovka saqlandi");
+      // Touch mavjudligini kutamiz (60s). Bo'lmasa — o'tkazib yuboramiz.
+      bool hasTouch = false;
+      int32_t px, py;
+      uint32_t t0 = millis();
+      while (millis() - t0 < 60000UL) {
+        if (lcd.getTouch(&px, &py)) { hasTouch = true; break; }
+        delay(60);
+      }
+      if (hasTouch) {
+        delay(300);
+        lcd.calibrateTouch(calData, 0xFFFF, 0x0000, 20);
+        prefs.begin("tftcal", false);
+        prefs.putBytes("calv2", calData, sizeof(calData));
+        prefs.end();
+        Serial.println("Touch kalibrovka saqlandi");
+      } else {
+        Serial.println("Touch topilmadi — kalibrovka o'tkazib yuborildi");
+      }
     }
   }
 
