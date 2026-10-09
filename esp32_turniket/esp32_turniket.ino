@@ -857,6 +857,15 @@ void updateClock(bool force = false) {
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(TFT_WHITE);
   lcd.drawString(clockShort(), 314, 4);
+
+  // Vaqtni davriy ravishda xotiraga saqlash (qayta yoqilganda tiklash uchun)
+  static uint32_t lastEpochSave = 0;
+  if (clockSet && millis() - lastEpochSave > 60000) {
+    lastEpochSave = millis();
+    prefs.begin("rtc", false);
+    prefs.putUInt("epoch", (uint32_t)time(nullptr));
+    prefs.end();
+  }
 }
 
 void drawBackground() {
@@ -870,21 +879,40 @@ void drawBackground() {
 
 // =================== UYQU (SLEEP) ===================
 
+void updateSleepClock(bool force = false) {
+  static uint32_t lastSleepSec = UINT32_MAX;
+  uint32_t sec = millis() / 1000;
+  if (!force && sec == lastSleepSec) return;
+  lastSleepSec = sec;
+
+  lcd.fillRect(20, 175, 280, 75, TFT_BLACK);
+  lcd.setTextDatum(textdatum_t::middle_center);
+  lcd.setFont(&fonts::Font4);
+  lcd.setTextSize(2);
+  lcd.setTextColor(0x52AA, TFT_BLACK);   // xira soat
+  lcd.drawString(clockShort(), 160, 212);
+  lcd.setTextSize(1);
+}
+
 void drawSleepScreen() {
   lcd.fillScreen(TFT_BLACK);
   lcd.setTextDatum(textdatum_t::middle_center);
+  lcd.setFont(&fonts::Font4);
+  lcd.setTextColor(0x2124, TFT_BLACK);   // juda xira
+  lcd.drawString("INHA UNIVERSITY", 160, 120);
   lcd.setFont(&fonts::Font2);
-  lcd.setTextColor(0x2124, TFT_BLACK);   // juda xira ko'k
-  lcd.drawString("INHA UNIVERSITY", 160, 220);
+  lcd.setTextColor(0x2124, TFT_BLACK);
+  lcd.drawString("Turniket kutish rejimida", 160, 155);
+  updateSleepClock(true);
   lcd.setFont(&fonts::Font0);
   lcd.setTextColor(0x18E3, TFT_BLACK);
-  lcd.drawString("Kartani taqdim eting", 160, 244);
+  lcd.drawString("Kartani taqdim eting", 160, 460);
 }
 
 void goSleep() {
   sleeping = true;
   drawSleepScreen();
-  Serial.println("Sleep rejimi (ekran o'chdi)");
+  Serial.println("Sleep rejimi (ekranda xira soat)");
 }
 
 void wakeUp() {
@@ -1167,6 +1195,21 @@ void setup() {
     }
   }
 
+  // Vaqtni NVS dan tiklash (dashboard sinxronlamaguncha)
+  {
+    prefs.begin("rtc", true);
+    uint32_t ep = prefs.getUInt("epoch", 0);
+    prefs.end();
+    if (ep > 1600000000UL) {
+      struct timeval tv;
+      tv.tv_sec = (time_t)ep;
+      tv.tv_usec = 0;
+      settimeofday(&tv, nullptr);
+      clockSet = true;
+      Serial.println("Vaqt NVS dan tiklandi");
+    }
+  }
+
   drawBackground();
   lastActivity = millis();
 
@@ -1220,7 +1263,8 @@ void loop() {
       updateClock();
       rfidLoop();
     } else {
-      rfidLoop();   // karta urilsa uyg'onadi
+      updateSleepClock();   // xira soatni yangilab turamiz
+      rfidLoop();           // karta urilsa uyg'onadi
     }
 
     // Uyquga ketish (60s harakatsizlik)
