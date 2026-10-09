@@ -12,7 +12,6 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <FFat.h>
-#include <Preferences.h>
 #include <time.h>
 #include <sys/time.h>
 #include <vector>
@@ -27,11 +26,9 @@
 // ---------- PINLAR ----------
 #define PIN_SCK     12
 #define PIN_MOSI    11
-#define PIN_MISO    13
 #define PIN_LCD_CS  10
 #define PIN_LCD_DC   8
 #define PIN_LCD_RST  9
-#define PIN_T_CS    14
 
 #define RFID_CS     15
 #define RFID_SCK    16
@@ -45,7 +42,6 @@
 class LGFX : public lgfx::LGFX_Device {
   lgfx::Panel_ILI9488 _panel;
   lgfx::Bus_SPI       _bus;
-  lgfx::Touch_XPT2046 _touch;
 public:
   LGFX(void) {
     {
@@ -59,7 +55,7 @@ public:
       cfg.dma_channel = SPI_DMA_CH_AUTO;
       cfg.pin_sclk    = PIN_SCK;
       cfg.pin_mosi    = PIN_MOSI;
-      cfg.pin_miso    = PIN_MISO;
+      cfg.pin_miso    = -1;
       cfg.pin_dc      = PIN_LCD_DC;
       _bus.config(cfg);
       _panel.setBus(&_bus);
@@ -74,29 +70,12 @@ public:
       cfg.offset_x         = 0;
       cfg.offset_y         = 0;
       cfg.offset_rotation  = 0;
-      cfg.readable         = true;
+      cfg.readable         = false;
       cfg.invert           = false;
       cfg.rgb_order        = false;
       cfg.dlen_16bit       = false;
-      cfg.bus_shared       = true;
+      cfg.bus_shared       = false;
       _panel.config(cfg);
-    }
-    {
-      auto cfg = _touch.config();
-      cfg.spi_host    = SPI3_HOST;
-      cfg.freq        = 1000000;
-      cfg.pin_sclk    = PIN_SCK;
-      cfg.pin_mosi    = PIN_MOSI;
-      cfg.pin_miso    = PIN_MISO;
-      cfg.pin_cs      = PIN_T_CS;
-      cfg.pin_int     = -1;
-      cfg.bus_shared  = true;
-      cfg.x_min       = 300;
-      cfg.x_max       = 3900;
-      cfg.y_min       = 400;
-      cfg.y_max       = 3900;
-      _touch.config(cfg);
-      _panel.setTouch(&_touch);
     }
     setPanel(&_panel);
   }
@@ -112,13 +91,6 @@ uint32_t cardShownAt = 0;
 uint32_t lastClock = UINT32_MAX;
 String lastUid = "";
 uint32_t lastUidAt = 0;
-
-// Uyqu (sleep) rejimi
-Preferences prefs;
-bool sleeping = false;
-bool touching = false;
-uint32_t lastActivity = 0;
-#define SLEEP_MS 60000UL
 
 uint8_t* photoBuf = nullptr;
 size_t   photoLen = 0;
@@ -857,15 +829,6 @@ void updateClock(bool force = false) {
   lcd.setFont(&fonts::Font2);
   lcd.setTextColor(TFT_WHITE);
   lcd.drawString(clockShort(), 314, 4);
-
-  // Vaqtni davriy ravishda xotiraga saqlash (qayta yoqilganda tiklash uchun)
-  static uint32_t lastEpochSave = 0;
-  if (clockSet && millis() - lastEpochSave > 60000) {
-    lastEpochSave = millis();
-    prefs.begin("rtc", false);
-    prefs.putUInt("epoch", (uint32_t)time(nullptr));
-    prefs.end();
-  }
 }
 
 void drawBackground() {
@@ -875,66 +838,6 @@ void drawBackground() {
   lcd.fillRect(226, 4, 90, 20, BG_BLUE);
   lastClock = UINT32_MAX;
   updateClock(true);
-}
-
-// =================== UYQU (SLEEP) ===================
-
-void updateSleepClock(bool force = false) {
-  static uint32_t lastSleepSec = UINT32_MAX;
-  uint32_t sec = millis() / 1000;
-  if (!force && sec == lastSleepSec) return;
-  lastSleepSec = sec;
-
-  lcd.fillRect(20, 175, 280, 75, TFT_BLACK);
-  lcd.setTextDatum(textdatum_t::middle_center);
-  lcd.setFont(&fonts::Font4);
-  lcd.setTextSize(2);
-  lcd.setTextColor(0x8410, TFT_BLACK);   // o'rtacha yorqin soat
-  lcd.drawString(clockShort(), 160, 212);
-  lcd.setTextSize(1);
-}
-
-void drawSleepScreen() {
-  lcd.fillScreen(TFT_BLACK);
-  lcd.setTextDatum(textdatum_t::middle_center);
-  lcd.setFont(&fonts::Font4);
-  lcd.setTextColor(0x4208, TFT_BLACK);   // yorqinroq
-  lcd.drawString("INHA UNIVERSITY", 160, 120);
-  lcd.setFont(&fonts::Font2);
-  lcd.setTextColor(0x3186, TFT_BLACK);
-  lcd.drawString("Turniket kutish rejimida", 160, 155);
-  updateSleepClock(true);
-  lcd.setFont(&fonts::Font0);
-  lcd.setTextColor(0x3186, TFT_BLACK);
-  lcd.drawString("Kartani taqdim eting", 160, 460);
-}
-
-void goSleep() {
-  sleeping = true;
-  drawSleepScreen();
-  Serial.println("Sleep rejimi (ekranda xira soat)");
-}
-
-void wakeUp() {
-  if (!sleeping) return;
-  sleeping = false;
-  drawBackground();
-  Serial.println("Uyg'ondi");
-}
-
-void drawTouchIndicator(int32_t x, int32_t y) {
-  char buf[40];
-  snprintf(buf, sizeof(buf), "X:%4ld Y:%4ld", (long)x, (long)y);
-  lcd.fillRect(6, 6, 150, 44, BG_BLUE);
-  lcd.setTextDatum(textdatum_t::top_left);
-  lcd.setFont(&fonts::Font2);
-  lcd.setTextColor(YEL);
-  lcd.drawString("Tegildi", 6, 6);
-  lcd.drawString(buf, 6, 26);
-  lcd.drawCircle(x, y, 12, TFT_WHITE);
-  lcd.drawLine(x - 16, y, x + 16, y, TFT_WHITE);
-  lcd.drawLine(x, y - 16, x, y + 16, TFT_WHITE);
-  lcd.drawCircle(x, y, 2, TFT_RED);
 }
 
 bool loadPhotoFromFS(const String& file) {
@@ -1068,9 +971,6 @@ void handleCard() {
   Serial.printf("Karta: %s\n", uid.c_str());
   rfid.PICC_HaltA();
 
-  sleeping = false;   // karta urilganda uyg'onadi
-  lastActivity = millis();
-
   int idx = -1;
   for (size_t i = 0; i < students.size(); i++) {
     if (uidMatches(students[i].uid, uid)) { idx = (int)i; break; }
@@ -1158,60 +1058,7 @@ void setup() {
   // Ekran
   lcd.init();
   lcd.setRotation(0);
-
-  // Touch kalibrovka (NVS dan yoki interaktiv)
-  {
-    uint16_t calData[8];
-    prefs.begin("tftcal", true);
-    size_t n = prefs.getBytes("calv2", calData, sizeof(calData));
-    prefs.end();
-    if (n == sizeof(calData)) {
-      lcd.setTouchCalibrate(calData);
-      Serial.println("Touch kalibrovka yuklandi");
-    } else {
-      lcd.fillScreen(TFT_BLACK);
-      lcd.setTextDatum(textdatum_t::middle_center);
-      lcd.setFont(&fonts::Font2);
-      lcd.setTextColor(TFT_WHITE);
-      lcd.drawString("Kalibrovka: nuqtalarni qalam bilan bosing", 160, 40);
-      // Touch mavjudligini kutamiz (60s). Bo'lmasa — o'tkazib yuboramiz.
-      bool hasTouch = false;
-      int32_t px, py;
-      uint32_t t0 = millis();
-      while (millis() - t0 < 60000UL) {
-        if (lcd.getTouch(&px, &py)) { hasTouch = true; break; }
-        delay(60);
-      }
-      if (hasTouch) {
-        delay(300);
-        lcd.calibrateTouch(calData, 0xFFFF, 0x0000, 20);
-        prefs.begin("tftcal", false);
-        prefs.putBytes("calv2", calData, sizeof(calData));
-        prefs.end();
-        Serial.println("Touch kalibrovka saqlandi");
-      } else {
-        Serial.println("Touch topilmadi — kalibrovka o'tkazib yuborildi");
-      }
-    }
-  }
-
-  // Vaqtni NVS dan tiklash (dashboard sinxronlamaguncha)
-  {
-    prefs.begin("rtc", true);
-    uint32_t ep = prefs.getUInt("epoch", 0);
-    prefs.end();
-    if (ep > 1600000000UL) {
-      struct timeval tv;
-      tv.tv_sec = (time_t)ep;
-      tv.tv_usec = 0;
-      settimeofday(&tv, nullptr);
-      clockSet = true;
-      Serial.println("Vaqt NVS dan tiklandi");
-    }
-  }
-
   drawBackground();
-  lastActivity = millis();
 
   // WiFi AP
   WiFi.mode(WIFI_AP);
@@ -1244,46 +1091,19 @@ void loop() {
   }
 
   if (!cardShowing) {
-    // Sensor (touch) — uyg'otish va vaqtinchalik indikator
-    int32_t tx, ty;
-    if (lcd.getTouch(&tx, &ty)) {
-      lastActivity = millis();
-      if (sleeping) {
-        wakeUp();
-      } else {
-        touching = true;
-        drawTouchIndicator(tx, ty);
-      }
-    } else if (touching) {
-      touching = false;
-      drawBackground();
-    }
-
-    if (!sleeping) {
-      updateClock();
-      rfidLoop();
-    } else {
-      updateSleepClock();   // xira soatni yangilab turamiz
-      rfidLoop();           // karta urilsa uyg'onadi
-    }
-
-    // Uyquga ketish (60s harakatsizlik)
-    if (!sleeping && millis() - lastActivity > SLEEP_MS) {
-      goSleep();
-    }
-  } else {
-    lastActivity = millis();
+    updateClock();
+    rfidLoop();
   }
 
   static uint32_t lastCheck = 0;
   if (millis() - lastCheck > 5000) {
     lastCheck = millis();
     if (!rfidOk) rfidHardwareInit();
-    Serial.printf("Holat: RFID=%s | o'quvchi=%d | log=%d | ichida=%d | AP klient=%d | sleep=%d | heap=%u\n",
+    Serial.printf("Holat: RFID=%s | o'quvchi=%d | log=%d | ichida=%d | AP klient=%d | heap=%u\n",
                   rfidOk ? "tayyor" : "topilmadi", (int)students.size(),
                   (int)logs.size(), insideCount(), WiFi.softAPgetStationNum(),
-                  sleeping ? 1 : 0, (unsigned)ESP.getFreeHeap());
-    if (!cardShowing && !rfidOk && !sleeping) drawCornerLabels();
+                  (unsigned)ESP.getFreeHeap());
+    if (!cardShowing && !rfidOk) drawCornerLabels();
   }
 
   delay(5);
