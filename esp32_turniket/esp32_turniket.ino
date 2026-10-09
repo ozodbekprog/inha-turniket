@@ -889,7 +889,7 @@ void updateSleepClock(bool force = false) {
   lcd.setTextDatum(textdatum_t::middle_center);
   lcd.setFont(&fonts::Font4);
   lcd.setTextSize(2);
-  lcd.setTextColor(0x52AA, TFT_BLACK);   // xira soat
+  lcd.setTextColor(0x8410, TFT_BLACK);   // o'rtacha yorqin soat
   lcd.drawString(clockShort(), 160, 212);
   lcd.setTextSize(1);
 }
@@ -898,14 +898,14 @@ void drawSleepScreen() {
   lcd.fillScreen(TFT_BLACK);
   lcd.setTextDatum(textdatum_t::middle_center);
   lcd.setFont(&fonts::Font4);
-  lcd.setTextColor(0x2124, TFT_BLACK);   // juda xira
+  lcd.setTextColor(0x4208, TFT_BLACK);   // yorqinroq
   lcd.drawString("INHA UNIVERSITY", 160, 120);
   lcd.setFont(&fonts::Font2);
-  lcd.setTextColor(0x2124, TFT_BLACK);
+  lcd.setTextColor(0x3186, TFT_BLACK);
   lcd.drawString("Turniket kutish rejimida", 160, 155);
   updateSleepClock(true);
   lcd.setFont(&fonts::Font0);
-  lcd.setTextColor(0x18E3, TFT_BLACK);
+  lcd.setTextColor(0x3186, TFT_BLACK);
   lcd.drawString("Kartani taqdim eting", 160, 460);
 }
 
