@@ -5,6 +5,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -373,6 +375,34 @@ class Api {
     }
   }
 
+  // Yangi o'quvchini to'g'ridan-to'g'ri ESP bazasiga yuklash (rasm bilan)
+  static Future<bool> addStudent({
+    required String uid,
+    required String ism,
+    required String familiya,
+    String sid = '',
+    String guruh = '',
+    String? photoPath,
+  }) async {
+    try {
+      final req = http.MultipartRequest('POST', Uri.parse('$base/add'));
+      req.fields['uid'] = uid;
+      req.fields['ism'] = ism;
+      req.fields['familiya'] = familiya;
+      req.fields['sid'] = sid;
+      req.fields['guruh'] = guruh;
+      if (photoPath != null && photoPath.isNotEmpty) {
+        req.files
+            .add(await http.MultipartFile.fromPath('photo', photoPath));
+      }
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+      return res.statusCode == 200 || res.statusCode == 303;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static String photoUrl(String photo) => '$base/photos/$photo';
 }
 
@@ -550,6 +580,13 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _openAddStudent() async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddStudentPage()),
+    );
+    if (ok == true) _load();
+  }
+
   Future<void> _openExcel() async {
     final uri = Uri.parse('${Api.base}/api/export');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
@@ -594,6 +631,11 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text('INHA Turniket Admin',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
         actions: [
+          IconButton(
+            tooltip: 'Yangi o\'quvchi',
+            onPressed: _openAddStudent,
+            icon: const Icon(Icons.person_add_alt),
+          ),
           IconButton(
             tooltip: 'Excel yuklab olish',
             onPressed: data != null ? _openExcel : null,
@@ -1070,6 +1112,193 @@ class _ConnectionHelp extends StatelessWidget {
               child: const Text('Server manzilini o\'zgartirish'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ================= YANGI O'QUVCHI QO'SHISH =================
+
+class AddStudentPage extends StatefulWidget {
+  const AddStudentPage({super.key});
+
+  @override
+  State<AddStudentPage> createState() => _AddStudentPageState();
+}
+
+class _AddStudentPageState extends State<AddStudentPage> {
+  final _uid = TextEditingController();
+  final _ism = TextEditingController();
+  final _familiya = TextEditingController();
+  final _sid = TextEditingController();
+  final _guruh = TextEditingController();
+  final _picker = ImagePicker();
+  XFile? _photo;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _uid.dispose();
+    _ism.dispose();
+    _familiya.dispose();
+    _sid.dispose();
+    _guruh.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick(ImageSource src) async {
+    try {
+      final x = await _picker.pickImage(
+        source: src,
+        maxWidth: 600,
+        maxHeight: 600,
+        imageQuality: 80,
+      );
+      if (x != null) setState(() => _photo = x);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Rasm olishda xato: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    final uid = _uid.text.trim().toUpperCase();
+    if (uid.isEmpty ||
+        _ism.text.trim().isEmpty ||
+        _familiya.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('UID, Ism va Familiya majburiy')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await Api.addStudent(
+      uid: uid,
+      ism: _ism.text.trim(),
+      familiya: _familiya.text.trim(),
+      sid: _sid.text.trim(),
+      guruh: _guruh.text.trim(),
+      photoPath: _photo?.path,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) {
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Saqlanmadi — ESP32 WiFi ulanishini tekshiring')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF101A30),
+        title: const Text('Yangi o\'quvchi qo\'shish',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Center(
+            child: GestureDetector(
+              onTap: () => _pick(ImageSource.camera),
+              child: Container(
+                width: 132,
+                height: 132,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF121A2C),
+                  border: Border.all(
+                      color: const Color(0xFF2B3C5C), width: 2),
+                  image: _photo != null
+                      ? DecorationImage(
+                          image: FileImage(File(_photo!.path)),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: _photo == null
+                    ? const Icon(Icons.add_a_photo,
+                        size: 42, color: Color(0xFF5C7099))
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: () => _pick(ImageSource.camera),
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Kamera'),
+              ),
+              const SizedBox(width: 10),
+              TextButton.icon(
+                onPressed: () => _pick(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Galereya'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _field(_uid, 'Karta UID (masalan: 00B9B41A)'),
+          _field(_ism, 'Ism'),
+          _field(_familiya, 'Familiya'),
+          _field(_sid, 'Talaba ID (U2610266)'),
+          _field(_guruh, 'Guruh (S00101)'),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save),
+              label: Text(
+                _saving ? 'Saqlanmoqda...' : 'Bazaga saqlash',
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Center(
+            child: Text(
+              'Rasm + ma\'lumotlar to\'g\'ridan-to\'g\'ri\nESP32 bazasiga saqlanadi',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF5C7099), fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController c, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: c,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: const Color(0xFF121A2C),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF2B3C5C)),
+          ),
         ),
       ),
     );
