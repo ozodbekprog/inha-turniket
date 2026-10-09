@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,16 +16,23 @@ const Map<String, String> ADMINS = {
   'bekmirzo': 'bekmirzotutor',
 };
 
+final LocalAuthentication auth = LocalAuthentication();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final user = prefs.getString('user');
-  runApp(TurniketApp(loggedUser: user));
+  final fast = prefs.getBool('fastlogin') ?? false;
+  runApp(TurniketApp(
+    loggedUser: fast ? null : user,
+    autoBio: fast && user != null,
+  ));
 }
 
 class TurniketApp extends StatelessWidget {
-  const TurniketApp({super.key, this.loggedUser});
+  const TurniketApp({super.key, this.loggedUser, this.autoBio = false});
   final String? loggedUser;
+  final bool autoBio;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +58,7 @@ class TurniketApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: base,
       home: loggedUser == null
-          ? const LoginPage()
+          ? LoginPage(autoBio: autoBio)
           : DashboardPage(user: loggedUser!),
     );
   }
@@ -58,7 +67,8 @@ class TurniketApp extends StatelessWidget {
 // ================= LOGIN =================
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.autoBio = false});
+  final bool autoBio;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -70,6 +80,56 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscure = true;
   String? _error;
   bool _loading = false;
+  bool _fastLogin = false;
+  String? _lastUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFast();
+  }
+
+  Future<void> _loadFast() async {
+    final prefs = await SharedPreferences.getInstance();
+    final f = prefs.getBool('fastlogin') ?? false;
+    final u = prefs.getString('lastuser');
+    if (!mounted) return;
+    setState(() {
+      _fastLogin = f;
+      _lastUser = u;
+    });
+    if (widget.autoBio && f && u != null && u.isNotEmpty) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      _tryBiometric(auto: true);
+    }
+  }
+
+  Future<void> _tryBiometric({bool auto = false}) async {
+    final user = _lastUser ?? '';
+    if (user.isEmpty) return;
+    try {
+      final ok = await auth.authenticate(
+        localizedReason: 'INHA Turniket: $user sifatida kirish uchun tasdiqlang',
+        biometricOnly: false,
+        sensitiveTransaction: true,
+        persistAcrossBackgrounding: true,
+      );
+      if (ok) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user', user);
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => DashboardPage(user: user)),
+        );
+      } else if (!auto) {
+        setState(() => _error = 'Tasdiqlanmadi — parol bilan kiring');
+      }
+    } on PlatformException catch (e) {
+      if (!auto) {
+        setState(() => _error = 'Biometrik xato: ${e.message ?? e.code}');
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -89,6 +149,31 @@ class _LoginPageState extends State<LoginPage> {
     if (ADMINS.containsKey(login) && ADMINS[login] == pass) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', login);
+      final already = prefs.getBool('fastlogin') ?? false;
+      if (!already && mounted) {
+        final en = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Face ID / barmoq izi'),
+            content: const Text(
+                'Keyingi kirishlarda Face ID yoki barmoq izi bilan tez kirishni yoqasizmi?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Yo\'q'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Ha, yoqilsin'),
+              ),
+            ],
+          ),
+        );
+        if (en == true) {
+          await prefs.setBool('fastlogin', true);
+          await prefs.setString('lastuser', login);
+        }
+      }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => DashboardPage(user: login)),
@@ -214,6 +299,21 @@ class _LoginPageState extends State<LoginPage> {
                                 fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                 ),
+                if (_fastLogin && _lastUser != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _tryBiometric(),
+                      icon: const Icon(Icons.face, color: Color(0xFF60A5FA)),
+                      label: Text(
+                        'Face ID bilan kirish ($_lastUser)',
+                        style: const TextStyle(color: Color(0xFF60A5FA)),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 const Text(
                   'Faqat administratorlar uchun',
@@ -291,6 +391,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String? error;
   bool loading = true;
   int tab = 0; // 0 = Kirdi, 1 = Chiqdi
+  bool _fastLoginEnabled = false;
   Timer? timer;
 
   @override
@@ -308,6 +409,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     Api.base = prefs.getString('server') ?? 'http://192.168.4.1';
+    _fastLoginEnabled = prefs.getBool('fastlogin') ?? false;
     await _load();
     timer =
         Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
@@ -363,7 +465,29 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(height: 2),
             const Text('Administrator',
                 style: TextStyle(color: Color(0xFF8FA3BF), fontSize: 13)),
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
+            StatefulBuilder(
+              builder: (sctx, setSheet) => SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary:
+                    const Icon(Icons.face, color: Color(0xFF8FA3BF)),
+                title: const Text('Face ID bilan kirish',
+                    style: TextStyle(fontSize: 14)),
+                value: _fastLoginEnabled,
+                onChanged: (v) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('fastlogin', v);
+                  if (v) {
+                    await prefs.setString('lastuser', widget.user);
+                  } else {
+                    await prefs.remove('lastuser');
+                  }
+                  setSheet(() {});
+                  if (mounted) setState(() => _fastLoginEnabled = v);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
