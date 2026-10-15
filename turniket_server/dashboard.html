@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>INHA Turniket — Jonli Dashboard</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0e1626; --panel2:#111c30; --line:#1d2c46;
+    --txt:#e8eef7; --mut:#8fa3bf; --blue:#3b82f6; --grn:#22c55e;
+    --orn:#f59e0b; --red:#ef4444; --cyan:#06b6d4; --vio:#8b5cf6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+       background:radial-gradient(1200px 600px at 80% -10%,#12203a 0%,var(--bg) 55%);
+       color:var(--txt);min-height:100vh}
+  header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;
+         padding:13px 26px;background:rgba(10,16,28,.85);backdrop-filter:blur(10px);
+         border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+        background:linear-gradient(135deg,#1d4ed8,#0ea5e9);font-weight:800;font-size:14px;letter-spacing:.5px}
+  header h1{font-size:16px;font-weight:700}
+  header .sub{font-size:11.5px;color:var(--mut)}
+  .live{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut)}
+  .spacer{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:11px;border:1px solid var(--line);
+       background:var(--panel2);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;
+       text-decoration:none}
+  .btn:hover{border-color:var(--blue);background:#152340}
+  .btn.primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#2563eb}
+  .btn.primary:hover{background:linear-gradient(135deg,#2563eb,#3b82f6)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--grn);box-shadow:0 0 10px var(--grn);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  main{max-width:1280px;margin:0 auto;padding:22px 26px 60px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:14px;margin-bottom:22px}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+        border-radius:16px;padding:15px 18px;position:relative;overflow:hidden;transition:.2s}
+  .card:hover{transform:translateY(-2px);border-color:#2b4a78}
+  .card .n{font-size:29px;font-weight:800}
+  .card .t{color:var(--mut);font-size:12.5px;margin-top:4px}
+  .card::after{content:'';position:absolute;right:-22px;top:-22px;width:80px;height:80px;border-radius:50%;opacity:.12}
+  .c-blue .n{color:var(--blue)} .c-blue::after{background:var(--blue)}
+  .c-grn .n{color:var(--grn)}  .c-grn::after{background:var(--grn)}
+  .c-orn .n{color:var(--orn)}  .c-orn::after{background:var(--orn)}
+  .c-red .n{color:var(--red)}  .c-red::after{background:var(--red)}
+  .c-cyan .n{color:var(--cyan)} .c-cyan::after{background:var(--cyan)}
+  section{margin-bottom:26px}
+  h2{font-size:13px;color:var(--mut);letter-spacing:1px;text-transform:uppercase;margin:0 0 12px;font-weight:700}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:860px){.cols{grid-template-columns:1fr}}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:140px}
+  .ch-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;min-width:0}
+  .barB{background:linear-gradient(180deg,#3b82f6,#1d4ed8);border-radius:4px 4px 0 0}
+  .barK{background:linear-gradient(180deg,#22c55e,#15803d);border-radius:4px 4px 0 0}
+  .ch-lbl{font-size:9.5px;color:var(--mut);text-align:center;margin-top:5px;white-space:nowrap;overflow:hidden}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--mut);margin-bottom:10px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .donut-wrap{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+  .donut{width:150px;height:150px;border-radius:50%;position:relative;flex-shrink:0;
+         background:conic-gradient(var(--grn) 0deg, var(--grn) var(--a,0deg), var(--blue) var(--a,0deg), var(--blue) 360deg)}
+  .donut::after{content:'';position:absolute;inset:26px;border-radius:50%;background:var(--panel)}
+  .donut .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+  .donut .mid b{font-size:26px}
+  .donut .mid span{font-size:11px;color:var(--mut)}
+  .dlegend div{display:flex;align-items:center;gap:9px;font-size:13.5px;margin-bottom:9px}
+  .dlegend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .dlegend b{margin-left:auto;font-size:15px}
+  .search{width:100%;padding:12px 16px;border-radius:12px;border:1px solid var(--line);
+          background:var(--panel2);color:var(--txt);font-size:14px;outline:none;margin-bottom:14px}
+  .search:focus{border-color:var(--blue)}
+  .students{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
+  .stu{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;padding:12px 14px;transition:.15s}
+  .stu:hover{border-color:#2b4a78;transform:translateY(-1px)}
+  .avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#1b263b;
+          border:2px solid #2b3c5c;display:flex;align-items:center;justify-content:center;
+          font-weight:700;color:#9db6dd;font-size:18px;flex-shrink:0;position:relative;overflow:hidden}
+  .avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .stu .info{min-width:0;flex:1}
+  .stu b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stu .m{color:var(--mut);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stu .u{color:#5871a0;font-size:10.5px;margin-top:2px;font-family:ui-monospace,monospace}
+  .st-badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:700;flex-shrink:0}
+  .st-faol{background:#0d3320;color:#4ade80}
+  .st-blok{background:#3d1515;color:#f87171}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:rgba(59,130,246,.06)}
+  .badge{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:700}
+  .b-kirdi{background:#0d3320;color:#4ade80}
+  .b-chiqdi{background:#3a2a10;color:#fbbf24}
+  .b-deny{background:#3d1515;color:#f87171}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);
+       cursor:pointer;font-size:13px;font-weight:600;transition:.15s}
+  .tab:hover{border-color:#2b4a78;color:var(--txt)}
+  .tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grp{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .grp .nm{width:170px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
+  .grp .tr{flex:1;height:20px;background:#131f36;border-radius:6px;overflow:hidden}
+  .grp .fl{height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:6px;transition:width .5s}
+  .grp b{width:34px;text-align:right;font-size:13px}
+  .unk{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .unk:last-child{border-bottom:none}
+  .unk .u{font-family:ui-monospace,monospace;font-size:13.5px;color:#fbbf24;font-weight:700}
+  .unk .t{color:var(--mut);font-size:12px;flex:1}
+  .editb{background:none;border:none;color:var(--mut);cursor:pointer;font-size:15px;padding:5px 8px;border-radius:9px;transition:.15s}
+  .editb:hover{color:var(--blue);background:#152340}
+  .modal-bg{position:fixed;inset:0;background:rgba(4,8,16,.7);backdrop-filter:blur(4px);
+            display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+  .modal-bg.on{display:flex}
+  .modal{width:100%;max-width:440px;background:var(--panel2);border:1px solid var(--line);
+         border-radius:18px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .modal h3{margin-bottom:16px;font-size:16px}
+  .mrow{margin-bottom:12px}
+  .mrow label{display:block;font-size:12px;color:var(--mut);margin-bottom:5px;font-weight:600}
+  .mrow input,.mrow select{width:100%;padding:10px 13px;border-radius:10px;border:1px solid var(--line);
+        background:var(--panel);color:var(--txt);font-size:14px;outline:none}
+  .mrow input:focus,.mrow select:focus{border-color:var(--blue)}
+  .mrow input[readonly]{color:#fbbf24;font-family:ui-monospace,monospace}
+  .m-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .foot{text-align:center;color:#4c5f80;font-size:12px;margin-top:30px}
+  #toast{position:fixed;bottom:24px;right:24px;background:#152340;border:1px solid var(--blue);
+         padding:14px 20px;border-radius:12px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.5);
+         opacity:0;transform:translateY(10px);transition:.25s;z-index:99;pointer-events:none}
+  #toast.show{opacity:1;transform:translateY(0)}
+  @media(max-width:640px){main{padding:14px}header{padding:11px 14px}.card .n{font-size:23px}.live{display:none}
+    .grp .nm{width:100px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">INHA</div>
+  <div>
+    <h1>Turniket — Jonli Dashboard</h1>
+    <div class="sub" id="clock">—</div>
+  </div>
+  <div class="live" style="margin-left:14px"><span class="dot"></span><span id="tick">ulanmoqda…</span></div>
+  <div class="spacer"></div>
+  <button class="btn" id="newBtn">＋ Yangi o'quvchi</button>
+  <button class="btn" id="importBtn">⬆ Import (CSV)</button>
+  <input type="file" id="importFile" accept=".csv,text/csv" style="display:none">
+  <a class="btn primary" href="/api/export">⬇ Eksport (XLSX)</a>
+</header>
+<main>
+  <div class="grid">
+    <div class="card c-blue"><div class="n" id="n-total">0</div><div class="t">Jami o'quvchilar</div></div>
+    <div class="card c-grn"><div class="n" id="n-today-k">0</div><div class="t">Bugun kirdi</div></div>
+    <div class="card c-orn"><div class="n" id="n-today-c">0</div><div class="t">Bugun chiqdi</div></div>
+    <div class="card c-cyan"><div class="n" id="n-inside">0</div><div class="t">Hozir ichida</div></div>
+    <div class="card c-red"><div class="n" id="n-deny">0</div><div class="t">Ruxsat yo'q (bugun)</div></div>
+  </div>
+
+  <section>
+    <div class="cols">
+      <div>
+        <h2>Bugungi holat</h2>
+        <div class="panel donut-wrap">
+          <div class="donut" id="donut"><div class="mid"><b id="d-total">0</b><span>harakat</span></div></div>
+          <div class="dlegend" style="flex:1;min-width:160px">
+            <div><i style="background:var(--grn)"></i>Kirdi <b id="d-k">0</b></div>
+            <div><i style="background:var(--blue)"></i>Chiqdi <b id="d-c">0</b></div>
+            <div><i style="background:var(--red)"></i>Ruxsat yo'q <b id="d-d">0</b></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2>Haftalik dinamika (7 kun)</h2>
+        <div class="panel">
+          <div class="legend">
+            <span><i style="background:#22c55e"></i>Kirdi</span>
+            <span><i style="background:#3b82f6"></i>Chiqdi</span>
+          </div>
+          <div class="chart" id="week"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Kunlik oqim (soatlar bo'yicha)</h2>
+    <div class="panel">
+      <div class="legend">
+        <span><i style="background:#22c55e"></i>Kirdi</span>
+        <span><i style="background:#3b82f6"></i>Chiqdi</span>
+      </div>
+      <div class="chart" id="chart"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Guruhlar bo'yicha</h2>
+    <div class="panel" id="groups"><div style="color:#5871a0">Ma'lumot yo'q</div></div>
+  </section>
+
+  <section>
+    <h2>O'quvchilar</h2>
+    <input class="search" id="search" placeholder="Ism yoki UID bo'yicha qidirish…">
+    <div class="students" id="students"></div>
+  </section>
+
+  <section>
+    <h2>Noma'lum kartalar (begona)</h2>
+    <div class="panel" id="unknown"><div style="color:#5871a0">Hozircha yo'q</div></div>
+  </section>
+
+  <section>
+    <h2>Davomat</h2>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-f="all">Hammasi</button>
+      <button class="tab" data-f="Kirdi">Kirdi</button>
+      <button class="tab" data-f="Chiqdi">Chiqdi</button>
+      <button class="tab" data-f="deny">Ruxsat yo'q</button>
+    </div>
+    <div class="panel" style="padding:0;overflow:auto">
+      <table>
+        <thead><tr><th>Vaqt</th><th>UID</th><th>Ism</th><th>Holat</th></tr></thead>
+        <tbody id="logs"></tbody>
+      </table>
+    </div>
+  </section>
+  <div class="foot">INHA Turniket • har 5 sekundda yangilanadi • <span id="host"></span></div>
+</main>
+<div id="modal" class="modal-bg">
+  <div class="modal">
+    <h3 id="m-title">Profil</h3>
+    <div class="mrow"><label>Karta ID (UID) *</label><input id="m-uid" placeholder="Masalan: A2D083D9 (bir nechta: ID1;ID2)"></div>
+    <div class="mrow"><label>Ism *</label><input id="m-ism" placeholder="Ism"></div>
+    <div class="mrow"><label>Familiya</label><input id="m-familiya" placeholder="Familiya"></div>
+    <div class="mrow"><label>Talaba ID</label><input id="m-sid" placeholder="U2610xxx"></div>
+    <div class="mrow"><label>Guruh</label><input id="m-guruh" placeholder="Guruh"></div>
+    <div class="mrow"><label>Holat</label>
+      <select id="m-holat">
+        <option value="faol">Faol</option>
+        <option value="bloklangan">Bloklangan</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Rasm (ixtiyoriy)</label><input type="file" id="m-photo" accept="image/*"></div>
+    <div class="m-actions">
+      <button class="btn" id="m-cancel">Bekor qilish</button>
+      <button class="btn primary" id="m-save">Saqlash</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+let D = null, B = null, W = [], U = [], filter = 'all';
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const badge = h => { const l = (h||'').toLowerCase();
+  if (l.includes('kirdi')) return 'b-kirdi'; if (l.includes('chiqdi')) return 'b-chiqdi'; return 'b-deny'; };
+const WEEKDAY = ['Yak','Dush','Sesh','Chor','Pay','Jum','Shan'];
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+function render(){
+  if(!D) return;
+  $('n-total').textContent   = D.total ?? 0;
+  $('n-today-k').textContent = D.todayKirdi ?? 0;
+  $('n-today-c').textContent = D.todayChiqdi ?? 0;
+  $('n-inside').textContent  = D.inside ?? 0;
+  const deny = (B?.stats?.denied) ?? 0;
+  $('n-deny').textContent    = deny;
+
+  // donut
+  const k = D.todayKirdi||0, c = D.todayChiqdi||0, d = deny||0;
+  const tot = k + c + d;
+  $('d-total').textContent = tot;
+  $('d-k').textContent = k; $('d-c').textContent = c; $('d-d').textContent = d;
+  const kp = tot ? (k/tot*360) : 0, cp = tot ? ((k+c)/tot*360) : 0;
+  $('donut').style.background = tot
+    ? `conic-gradient(var(--grn) 0deg ${kp}deg, var(--blue) ${kp}deg ${cp}deg, var(--red) ${cp}deg 360deg)`
+    : 'conic-gradient(#1d2c46 0deg 360deg)';
+
+  // hourly
+  const hk = D.hoursK || [], hc = D.hoursC || [];
+  const mx = Math.max(1, ...hk, ...hc);
+  let ch = '';
+  for (let h = 0; h < 24; h++){
+    const a = hk[h]||0, b = hc[h]||0;
+    ch += '<div class="ch-col" title="' + h + ':00 — kirdi:' + a + ', chiqdi:' + b + '">'
+        + (b ? '<div class="barB" style="height:' + Math.round(b/mx*100) + 'px"></div>' : '')
+        + (a ? '<div class="barK" style="height:' + Math.round(a/mx*100) + 'px"></div>' : '')
+        + '<div class="ch-lbl">' + h + '</div></div>';
+  }
+  $('chart').innerHTML = ch;
+
+  // weekly
+  const wmx = Math.max(1, ...W.map(x=>Math.max(x.kirdi, x.chiqdi)));
+  $('week').innerHTML = W.map(x => {
+    const dt = new Date(x.date + 'T00:00:00');
+    const lbl = WEEKDAY[dt.getDay()] + '<br>' + x.date.slice(8,10) + '.' + x.date.slice(5,7);
+    return '<div class="ch-col" title="' + x.date + ' — kirdi:' + x.kirdi + ', chiqdi:' + x.chiqdi + '">'
+      + (x.chiqdi ? '<div class="barB" style="height:' + Math.round(x.chiqdi/wmx*100) + 'px"></div>' : '')
+      + (x.kirdi ? '<div class="barK" style="height:' + Math.round(x.kirdi/wmx*100) + 'px"></div>' : '')
+      + '<div class="ch-lbl">' + lbl + '</div></div>';
+  }).join('');
+
+  // groups (board students)
+  const bs = (B?.students)||[];
+  const gmap = {};
+  bs.forEach(s => { const g = (s.guruh||'').trim() || '—'; gmap[g] = (gmap[g]||0)+1; });
+  const gs = Object.entries(gmap).sort((a,b)=>b[1]-a[1]);
+  const gmx = Math.max(1, ...gs.map(x=>x[1]));
+  $('groups').innerHTML = gs.map(([g,n]) =>
+    '<div class="grp"><div class="nm" title="' + esc(g) + '">' + esc(g) + '</div>'
+    + '<div class="tr"><div class="fl" style="width:' + Math.round(n/gmx*100) + '%"></div></div>'
+    + '<b>' + n + '</b></div>').join('') || '<div style="color:#5871a0">Ma\'lumot yo\'q</div>';
+
+  // students (board ma'lumotlari bilan — guruh + holat ham bor)
+  const q = ($('search').value||'').toLowerCase();
+  const list = bs.filter(s => !q || (s.ism+' '+s.familiya+' '+s.uid).toLowerCase().includes(q));
+  $('students').innerHTML = list.map(s => {
+    const ini = (s.ism||'?').charAt(0).toUpperCase();
+    const ph = s.photo ? '<img src="/photos/' + esc(s.photo.split('/').pop()) + '" onerror="this.remove()">' : '';
+    const blocked = (s.holat||'').toLowerCase().includes('blok');
+    const stb = blocked ? '<span class="st-badge st-blok">blok</span>' : '<span class="st-badge st-faol">faol</span>';
+    return '<div class="stu"><div class="avatar">' + ini + ph + '</div>'
+      + '<div class="info"><b>' + esc(s.ism) + ' ' + esc(s.familiya) + '</b>'
+      + '<div class="m">' + (esc(s.sid ? s.sid : s.guruh) || '&nbsp;') + '</div>'
+      + '<div class="u">' + esc(s.uid) + '</div></div>' + stb
+      + '<button class="editb" onclick="openEdit(\'' + esc(s.uid) + '\')" title="Tahrirlash">&#9998;</button></div>';
+  }).join('') || '<div style="color:#5871a0">Topilmadi</div>';
+
+  // noma'lum kartalar
+  $('unknown').innerHTML = (U||[]).map(x =>
+    '<div class="unk"><span class="u">' + esc(x.uid) + '</span>'
+    + '<span class="t">' + x.count + ' marta ko\'rildi | oxirgi: ' + esc(x.ts) + '</span>'
+    + '<button class="btn" onclick="openEdit(\'' + esc(x.uid) + '\')">+ Ro\'yxatga olish</button></div>'
+  ).join('') || '<div style="color:#5871a0">Hozircha noma\'lum karta yo\'q</div>';
+
+  // logs
+  let logs = (B?.logs)||[];
+  if (filter === 'deny') logs = logs.filter(l => badge(l.holat)==='b-deny');
+  else if (filter !== 'all') logs = logs.filter(l => l.holat === filter);
+  $('logs').innerHTML = logs.map(l => '<tr><td>' + esc(l.ts) + '</td>'
+    + '<td style="font-family:ui-monospace,monospace;font-size:12px">' + esc(l.uid) + '</td>'
+    + '<td>' + esc(l.ism) + '</td>'
+    + '<td><span class="badge ' + badge(l.holat) + '">' + esc(l.holat) + '</span></td></tr>').join('')
+    || '<tr><td colspan="4" style="color:#5871a0">Yozuvlar yo\'q</td></tr>';
+}
+
+async function load(){
+  try{
+    const [d, b, w, u] = await Promise.all([
+      fetch('/api/data', {cache:'no-store'}).then(r=>r.json()),
+      fetch('/api/board', {cache:'no-store'}).then(r=>r.json()),
+      fetch('/api/week', {cache:'no-store'}).then(r=>r.json()).catch(()=>[]),
+      fetch('/api/unknown', {cache:'no-store'}).then(r=>r.json()).catch(()=>[])
+    ]);
+    D = d; B = b; W = Array.isArray(w) ? w : []; U = Array.isArray(u) ? u : [];
+    $('host').textContent = location.host;
+    $('tick').textContent = 'yangilandi ' + new Date().toLocaleTimeString('uz-UZ');
+    render();
+  }catch(e){ $('tick').textContent = 'aloqa uzildi…'; }
+}
+
+$('search').addEventListener('input', render);
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab'); if(!b) return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  b.classList.add('on'); filter = b.dataset.f; render();
+});
+
+// Import
+$('importBtn').addEventListener('click', ()=> $('importFile').click());
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if(!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  try{
+    const r = await fetch('/api/import', {method:'POST', body:fd});
+    const j = await r.json();
+    toast(j.ok ? ('Import: ' + j.count + ' ta o\'quvchi yuklandi ✅') : 'Import xatosi');
+    load();
+  }catch(err){ toast('Import xatosi: ' + err); }
+  e.target.value = '';
+});
+
+// ===== Profil tahrirlash / ro'yxatga olish modali =====
+let editUid = null;
+window.openEdit = function(uid){
+  editUid = uid;
+  const s = ((B?.students)||[]).find(x=>x.uid===uid) || {};
+  $('m-title').textContent = s.ism ? 'Profilni tahrirlash' : 'Kartani ro\'yxatga olish';
+  $('m-uid').value = uid;
+  $('m-uid').readOnly = true;
+  $('m-ism').value = s.ism || '';
+  $('m-familiya').value = s.familiya || '';
+  $('m-sid').value = s.sid || '';
+  $('m-guruh').value = s.guruh || '';
+  $('m-holat').value = (s.holat||'').includes('blok') ? 'bloklangan' : 'faol';
+  $('m-photo').value = '';
+  $('modal').classList.add('on');
+};
+window.openNew = function(){
+  editUid = null;
+  $('m-title').textContent = 'Yangi o\'quvchi qo\'shish';
+  $('m-uid').value = '';
+  $('m-uid').readOnly = false;
+  $('m-ism').value = '';
+  $('m-familiya').value = '';
+  $('m-sid').value = '';
+  $('m-guruh').value = '';
+  $('m-holat').value = 'faol';
+  $('m-photo').value = '';
+  $('modal').classList.add('on');
+  $('m-uid').focus();
+};
+$('newBtn').addEventListener('click', openNew);
+$('m-cancel').addEventListener('click', ()=> $('modal').classList.remove('on'));
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').classList.remove('on'); });
+$('m-save').addEventListener('click', async ()=>{
+  const uid = ($('m-uid').value || '').trim().toUpperCase();
+  if (!uid){ toast('Karta ID (UID) kiritilishi shart'); return; }
+  if (!$('m-ism').value.trim()){ toast('Ism kiritilishi shart'); return; }
+  const fd = new FormData();
+  fd.append('uid', uid);
+  fd.append('ism', $('m-ism').value);
+  fd.append('familiya', $('m-familiya').value);
+  fd.append('sid', $('m-sid').value);
+  fd.append('guruh', $('m-guruh').value);
+  fd.append('holat', $('m-holat').value);
+  const ph = $('m-photo').files[0];
+  if (ph) fd.append('photo', ph);
+  try{
+    const r = await fetch('/add', {method:'POST', body:fd});
+    if (r.ok || r.status === 303){
+      toast('Saqlandi ✅');
+      $('modal').classList.remove('on');
+      load();
+    } else toast('Xatolik: HTTP ' + r.status);
+  }catch(e){ toast('Xatolik: ' + e); }
+});
+
+setInterval(()=>{ $('clock').textContent = new Date().toLocaleString('uz-UZ'); }, 1000);
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>
